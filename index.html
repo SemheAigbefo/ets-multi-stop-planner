@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay</title>
+<style>
+  :root {
+    --ink: #F2F2F3;
+    --ink-soft: #9AA0A6;
+    --ink-muted: #6E6E72;
+    --paper: #141416;
+    --card: #1C1C1E;
+    --card-2: #242426;
+    --line: #2E2E31;
+    --signal: #F2A93B;
+    --signal-bg: #3A2C14;
+    --transit: #56D6CF;
+    --transit-bg: #123B39;
+    --route-blue: #2F7CF6;
+    --route-blue-bg: #12203F;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  .screen { display: none; max-width: 460px; margin: 0 auto; padding: 20px 16px 60px; }
+  .screen.active { display: block; }
+
+  .brand {
+    font-family: "Arial Narrow", Helvetica, sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    margin: 4px 0 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .brand .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--signal); display: inline-block; }
+
+  .back-btn {
+    background: none; border: none; color: var(--ink-soft);
+    font-size: 13px; cursor: pointer; padding: 0; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .back-btn:hover { color: var(--ink); }
+
+  /* ---------- Planner ---------- */
+  .field {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .field input {
+    border: none; outline: none; background: transparent;
+    font-size: 14px; color: var(--ink); width: 100%; font-family: inherit;
+  }
+  .search-message {
+    font-size: 12px;
+    margin: -4px 0 10px 2px;
+    min-height: 14px;
+  }
+  .search-message.error { color: var(--signal); }
+  .search-message.ok { color: var(--transit); }
+  .stop-suggestions {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    margin: -4px 0 10px;
+    overflow: hidden;
+  }
+  .stop-suggestions:empty { display: none; border: none; margin: 0; }
+  .suggestion-item {
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+  }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover { background: var(--card-2); }
+  .label-row { margin: 18px 0 8px; }
+  .label-row .label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-soft); font-weight: 700;
+  }
+  .stop-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .stop-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid var(--line);
+  }
+  .stop-row:last-child { border-bottom: none; }
+  .stop-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--transit-bg); color: var(--transit);
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .stop-info { flex: 1; min-width: 0; }
+  .stop-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stop-time { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+  .stop-time input {
+    border: none; background: transparent; font-family: "Courier New", monospace;
+    font-size: 12px; color: var(--ink-soft); padding: 0;
+  }
+  .arrows { display: flex; flex-direction: column; gap: 1px; }
+  .arrows button, .remove-btn {
+    border: none; background: transparent; color: var(--ink-soft);
+    cursor: pointer; padding: 2px; font-size: 12px; line-height: 1;
+  }
+  .arrows button:disabled { color: var(--line); cursor: default; }
+  .remove-btn { font-size: 15px; width: 26px; }
+
+  .cta {
+    width: 100%; margin-top: 20px;
+    background: var(--transit); color: #06211F;
+    border: none; border-radius: var(--radius);
+    padding: 14px; font-size: 15px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.02em;
+  }
+  .cta:hover { background: #79E4DE; }
+  .cta-row { display: flex; gap: 10px; margin-top: 20px; }
+  .cta-row .cta { margin-top: 0; }
+  .cta-ghost {
+    flex: 1; background: var(--card-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .cta-ghost:hover { background: var(--card); }
+
+  /* ---------- Overview (page A) ---------- */
+  .route-map {
+    position: relative; height: 150px; background: var(--card);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    margin: 14px 0; overflow: hidden;
+  }
+  .route-map svg { width: 100%; height: 100%; }
+  .route-callout {
+    position: absolute; background: var(--card-2); color: var(--ink);
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+    border: 1px solid var(--line);
+  }
+
+  .mode-row {
+    display: flex; background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; margin: 14px 0;
+  }
+  .mode {
+    flex: 1; text-align: center; padding: 10px 4px; cursor: pointer;
+    border-right: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .mode:last-child { border-right: none; }
+  .mode .mode-icon { font-size: 16px; display: block; margin-bottom: 3px; }
+  .mode .mode-time { font-size: 12px; font-weight: 600; }
+  .mode.active { color: var(--transit); background: var(--transit-bg); }
+  .mode.clickable:hover { background: var(--card-2); }
+
+  /* ---------- Options list (page B) ---------- */
+  .page-title { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .chip {
+    background: var(--card-2); border: 1px solid var(--line);
+    color: var(--ink); font-size: 12px; padding: 7px 12px;
+    border-radius: 20px; display: flex; align-items: center; gap: 5px;
+  }
+
+  .chain { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .chain-chip {
+    display: flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 6px;
+    background: var(--card-2); color: var(--ink-soft);
+  }
+  .chain-chip.bus { background: var(--route-blue-bg); color: #A9C6FF; }
+  .chain-chip.lrt { background: var(--transit-bg); color: var(--transit); }
+  .chain-sep { color: var(--ink-muted); font-size: 11px; }
+
+  .option-row {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+    cursor: pointer; display: flex; gap: 14px;
+  }
+  .option-row:hover { border-color: var(--ink-muted); }
+  .option-duration { flex-shrink: 0; width: 56px; }
+  .option-duration .h { font-size: 20px; font-weight: 700; line-height: 1.1; }
+  .option-duration .m { font-size: 13px; color: var(--ink-soft); }
+  .option-body { flex: 1; min-width: 0; }
+  .option-range { font-size: 13px; color: var(--ink-soft); margin-bottom: 6px; }
+  .option-dep { font-size: 12px; color: var(--ink-muted); margin-top: 6px; }
+  .option-detour {
+    font-size: 12px; color: var(--signal); margin-top: 4px;
+    display: flex; align-items: center; gap: 4px; font-weight: 600;
+  }
+
+  /* ---------- Detail (page C) ---------- */
+  .detail-head { display: flex; justify-content: space-between; align-items: flex-start; }
+  .detail-total { font-size: 26px; font-weight: 700; }
+  .detail-arrive { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+  .icon-close {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--card-2);
+    border: 1px solid var(--line); color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .icon-close:hover { color: var(--ink); }
+
+  .chain-summary { margin: 14px 0 20px; }
+
+  .timeline { position: relative; padding: 4px 0; }
+  .timeline::before {
+    content: ''; position: absolute; left: 15px; top: 16px; bottom: 16px;
+    width: 2px; background: var(--line); z-index: 0;
+  }
+  .tl-item { position: relative; z-index: 1; display: flex; gap: 12px; margin-bottom: 18px; }
+  .tl-item:last-child { margin-bottom: 0; }
+  .tl-icon {
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card); border: 2px solid var(--card); font-size: 14px;
+  }
+  .tl-icon.walk { background: var(--card-2); color: var(--ink-soft); border-color: var(--card-2); }
+  .tl-icon.bus { background: var(--route-blue); color: #fff; border-color: var(--paper); }
+  .tl-icon.lrt { background: var(--transit); color: #06211F; border-color: var(--paper); }
+  .tl-content { flex: 1; min-width: 0; padding-top: 4px; }
+
+  .tl-walk-title { font-size: 14px; font-weight: 600; }
+  .tl-live {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+    background: var(--transit-bg); color: var(--transit);
+    font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 20px;
+  }
+
+  .tl-transit-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 12px 14px;
+  }
+  .tl-stop-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .tl-stop-name { font-size: 14px; font-weight: 700; }
+  .tl-stop-time { font-size: 13px; font-weight: 700; color: var(--ink); font-family: "Courier New", monospace; }
+  .tl-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .tl-badge {
+    font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 6px;
+    background: var(--route-blue); color: #fff;
+  }
+  .tl-badge.lrt { background: var(--transit); color: #06211F; }
+  .tl-headsign { font-size: 13px; color: var(--ink); }
+  .tl-scheduled { font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+  .tl-detour {
+    font-size: 12px; color: var(--signal); font-weight: 700;
+    display: flex; align-items: center; gap: 5px; margin-bottom: 6px;
+  }
+
+  details.tl-expand { margin-top: 6px; }
+  details.tl-expand summary {
+    font-size: 12px; color: var(--ink-soft); cursor: pointer;
+    list-style: none; display: flex; align-items: center; gap: 5px;
+  }
+  details.tl-expand summary::-webkit-details-marker { display: none; }
+  details.tl-expand summary::before { content: '\25B6'; font-size: 8px; transition: transform 0.15s; }
+  details.tl-expand[open] summary::before { transform: rotate(90deg); }
+  details.tl-expand .tl-expand-body {
+    font-size: 12px; color: var(--ink-soft); padding: 6px 0 0 13px;
+  }
+
+  .tl-alight { border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 10px; }
+  .tl-alight-note { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+  .tl-transfer-note {
+    display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 700;
+    color: var(--signal); background: var(--signal-bg); padding: 3px 9px; border-radius: 20px;
+  }
+
+  .detail-actions {
+    display: flex; gap: 8px; margin-top: 24px;
+  }
+  .detail-actions button {
+    flex: 1; padding: 12px 6px; font-size: 12px; font-weight: 700;
+    border-radius: 20px; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+  }
+  .detail-actions .primary { background: var(--transit); color: #06211F; border: none; }
+  .detail-actions .primary:hover { background: #79E4DE; }
+  .detail-actions .secondary { background: var(--card-2); color: var(--ink); border: 1px solid var(--line); }
+  .detail-actions .secondary:hover { background: var(--card); }
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: STOP PLANNER -->
+<div class="screen active" id="planner">
+  <div class="brand"><span class="dot"></span>relay</div>
+
+  <div class="field"><span>&#128269;</span><input type="text" id="stop-search" placeholder="Add a stop..." /></div>
+  <div class="search-message" id="search-message"></div>
+  <div class="stop-suggestions" id="stop-suggestions"></div>
+
+  <div class="label-row"><span class="label">Your stops</span></div>
+  <div class="stop-card" id="stop-list"></div>
+
+  <button class="cta" onclick="showOverview()">Search routes</button>
+</div>
+
+<!-- SCREEN 2: OVERVIEW (map + mode picker) -->
+<div class="screen" id="overview">
+  <button class="back-btn" onclick="showPlanner()">&larr; Edit stops</button>
+  <div class="brand" style="font-size:18px;"><span class="dot"></span>relay</div>
+
+  <div class="label-row"><span class="label">Trip</span></div>
+  <div class="stop-card" id="overview-stops"></div>
+
+  <div class="route-map">
+    <svg viewBox="0 0 400 150" preserveAspectRatio="none">
+      <path d="M 20 120 C 100 120, 90 40, 180 40 S 300 100, 380 30" fill="none" stroke="#2F7CF6" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="20" cy="120" r="6" fill="#F2A93B"/>
+      <circle cx="380" cy="30" r="6" fill="#56D6CF"/>
+    </svg>
+    <div class="route-callout" style="top:52px; left:140px;">22 min</div>
+  </div>
+
+  <div class="label-row"><span class="label">Choose how to get there</span></div>
+  <div class="mode-row">
+    <div class="mode"><span class="mode-icon">&#128663;</span><span class="mode-time">27 min</span></div>
+    <div class="mode active clickable" onclick="showOptions()"><span class="mode-icon">&#128652;</span><span class="mode-time">44 min</span></div>
+    <div class="mode"><span class="mode-icon">&#128694;</span><span class="mode-time">2 hr</span></div>
+    <div class="mode"><span class="mode-icon">&#128690;</span><span class="mode-time">38 min</span></div>
+  </div>
+
+  <div class="cta-row">
+    <button class="cta-ghost" onclick="showPlanner()">Edit stops</button>
+    <button class="cta" style="margin-top:0;" onclick="showOptions()">View transit routes</button>
+  </div>
+</div>
+
+<!-- SCREEN 3: OPTIONS LIST -->
+<div class="screen" id="options">
+  <button class="back-btn" onclick="showOverview()">&larr; Back</button>
+  <div class="page-title">Public transport</div>
+
+  <div class="mode-row">
+    <div class="mode"><span class="mode-icon">&#128663;</span><span class="mode-time">27 min</span></div>
+    <div class="mode active"><span class="mode-icon">&#128652;</span><span class="mode-time">44 min</span></div>
+    <div class="mode"><span class="mode-icon">&#128694;</span><span class="mode-time">2 hr</span></div>
+    <div class="mode"><span class="mode-icon">&#128690;</span><span class="mode-time">38 min</span></div>
+  </div>
+
+  <div class="filter-row">
+    <div class="chip">Leave 17:40 &#9662;</div>
+    <div class="chip">Fewest transfers &#9662;</div>
+  </div>
+
+  <div id="options-list"></div>
+</div>
+
+<!-- SCREEN 4: ROUTE DETAIL -->
+<div class="screen" id="detail">
+  <button class="back-btn" onclick="showOptions()">&larr; Back to routes</button>
+
+  <div class="detail-head">
+    <div>
+      <div class="detail-total" id="detail-total"></div>
+      <div class="detail-arrive" id="detail-arrive"></div>
+    </div>
+    <div class="icon-close" onclick="showOptions()">&times;</div>
+  </div>
+
+  <div class="chain-summary chain" id="detail-chain"></div>
+
+  <div class="timeline" id="detail-timeline"></div>
+
+  <div class="detail-actions">
+    <button class="primary">&#9654;<span>Start</span></button>
+    <button class="secondary">&#128278;<span>Save</span></button>
+    <button class="secondary">&#9888;<span>Report delay</span></button>
+  </div>
+</div>
+
+<script>
+  const stops = [
+    { name: "104 St & Jasper Ave", time: "17:40" },
+    { name: "Churchill Station", time: "17:52" },
+    { name: "University Transit Ctr", time: "18:05" }
+  ];
+
+  function renderStops() {
+  const list = document.getElementById('stop-list');
+  list.innerHTML = '';
+
+  stops.forEach((stop, i) => {
+
+    const row = document.createElement('div');
+    row.className = 'stop-row';
+
+    row.innerHTML = `
+      <div class="stop-num">${i + 1}</div>
+
+      <div class="stop-info">
+
+        <input 
+          class="stop-input"
+          value="${stop.name}"
+          data-i="${i}"
+        />
+
+        <div class="stop-suggestions"></div>
+
+        <div class="stop-time">
+          <span>&#128337;</span>
+          <input 
+            type="time" 
+            value="${stop.time}" 
+            data-i="${i}" 
+          />
+        </div>
+
+      </div>
+
+      <div class="arrows">
+        <button ${i === 0 ? 'disabled' : ''} onclick="move(${i},-1)">&#9650;</button>
+        <button ${i === stops.length - 1 ? 'disabled' : ''} onclick="move(${i},1)">&#9660;</button>
+      </div>
+
+      <button class="remove-btn" onclick="removeStop(${i})">
+        &times;
+      </button>
+    `;
+
+
+    // ADD CLICK/TYPING LOGIC HERE (outside innerHTML)
+    const input = row.querySelector('.stop-input');
+    const suggestionBox = row.querySelector('.stop-suggestions');
+
+
+    input.addEventListener('input', () => {
+
+      const result = validateStopSearch(
+        input.value,
+        knownStops
+      );
+
+      renderStopSuggestions(
+        suggestionBox,
+        result.matches.slice(0,2),
+        input,
+        i
+      );
+
+    });
+
+
+    list.appendChild(row);
+
+  });
+
+
+  list.querySelectorAll('input[type="time"]').forEach(inp => {
+    inp.addEventListener('change', e => {
+      stops[e.target.dataset.i].time = e.target.value;
+    });
+  });
+}
+  function move(i, dir) { const j = i + dir; [stops[i], stops[j]] = [stops[j], stops[i]]; renderStops(); }
+  function removeStop(i) { stops.splice(i, 1); renderStops(); }
+
+  // ---- Loads real stop names once stopsRouteJoin.json is available ----
+  let knownStops = [];
+  fetch('stopsRouteJoin.json')
+    .then(response => response.json())
+    .then(data => {
+      knownStops = data.map(stop => stop.name);
+      console.log(knownStops);
+    })
+    .catch(err => console.error('Failed to load stops:', err));
+
+  // ---- Live validation + suggestions on the "Add a stop" search field ----
+  const searchInput = document.getElementById('stop-search');
+  const searchMessage = document.getElementById('search-message');
+  const suggestionsBox = document.getElementById('stop-suggestions');
+
+  function matchingStops(value, stopNames) {
+    const normalized = value.trim().toLowerCase();
+    return stopNames.filter(name => name.toLowerCase().includes(normalized));
+  }
+
+  function validateStopSearch(value, stopNames) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return { valid: false, message: '', matches: [] };
+    }
+    if (trimmed.length < 3) {
+      return { valid: false, message: 'Keep typing — at least 3 characters.', matches: [] };
+    }
+    if (trimmed.length > 60) {
+      return { valid: false, message: 'That\'s too long for a stop name.', matches: [] };
+    }
+    if (!/^[a-zA-Z0-9 &.,'-]+$/.test(trimmed)) {
+      return { valid: false, message: 'Only letters, numbers, and basic punctuation.', matches: [] };
+    }
+    const matches = matchingStops(trimmed, stopNames);
+    if (matches.length === 0) {
+      return { valid: false, message: 'No matching stop found.', matches: [] };
+    }
+    return {
+      valid: true,
+      message: `${matches.length} match${matches.length === 1 ? '' : 'es'} found.`,
+      matches
+    };
+  }
+
+  // Wipes and rebuilds the dropdown every keystroke -- same pattern as renderStops().
+  function renderSuggestions(matches) {
+    suggestionsBox.innerHTML = '';
+    matches.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      item.textContent = name;
+      suggestionsBox.appendChild(item);
+    });
+  }
+
+  function renderStopSuggestions(box, matches, input, index) {
+
+    box.innerHTML = '';
+
+    matches.forEach(name => {
+
+        const item = document.createElement('div');
+
+        item.className = 'suggestion-item';
+
+        item.textContent = name;
+
+
+        item.addEventListener('click', () => {
+
+            input.value = name;
+
+            stops[index].name = name;
+
+            box.innerHTML = '';
+
+        });
+
+
+        box.appendChild(item);
+
+    });
+}
+
+  // One click listener on the container (event delegation) instead of one per
+  // item, since items get destroyed/recreated on every keystroke.
+  suggestionsBox.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('suggestion-item')) return;
+    searchInput.value = e.target.textContent;
+    suggestionsBox.innerHTML = '';
+    searchMessage.textContent = '';
+    searchMessage.classList.remove('error', 'ok');
+  });
+
+  searchInput.addEventListener('input', () => {
+    const result = validateStopSearch(searchInput.value, knownStops);
+    searchMessage.textContent = result.message;
+    searchMessage.classList.remove('error', 'ok');
+    if (result.message) searchMessage.classList.add(result.valid ? 'ok' : 'error');
+    renderSuggestions(result.matches.slice(0,2));
+  });
+
+  function renderOverviewStops() {
+    const wrap = document.getElementById('overview-stops');
+    wrap.innerHTML = stops.map((s, i) => `
+      <div class="stop-row">
+        <div class="stop-num">${i + 1}</div>
+        <div class="stop-info"><div class="stop-name">${s.name}</div></div>
+      </div>
+    `).join('');
+  }
+
+  function showPlanner() { switchTo('planner'); }
+  function showOverview() { renderOverviewStops(); switchTo('overview'); }
+  function showOptions() { renderOptions(); switchTo('options'); }
+  function showDetail(i) { renderDetail(routeOptions[i]); switchTo('detail'); }
+
+  function switchTo(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  // ---- Route option data (placeholder -- this is where GTFS + Directions
+  // API results plug in later). Each leg is walk / bus / lrt.
+  const routeOptions = [
+    {
+      note: "Fastest", totalH: "", totalM: "44 min", range: "5:40 pm - 6:24 pm",
+      depFrom: "104 St & Jasper Ave", detour: true,
+      legs: [
+        { type: 'walk', duration: '6 min (450 m)' },
+        { type: 'bus', route: '5', headsign: 'Southgate', boardStop: '104 St & Jasper Ave', boardTime: '5:46 pm',
+          scheduled: 'Scheduled - in 6 min', detour: true, rideStops: 8, rideMins: 9,
+          alightStop: 'Churchill Station', alightTime: '5:55 pm' },
+        { type: 'lrt', route: 'Capital Line', headsign: 'Century Park', boardStop: 'Churchill Station', boardTime: '5:58 pm',
+          scheduled: 'Scheduled - in 3 min', rideStops: 4, rideMins: 7,
+          alightStop: 'University Station', alightTime: '6:05 pm', alightNote: 'Follow signs for South Exit' },
+        { type: 'bus', route: '9', headsign: 'University', boardStop: 'University Station', boardTime: '6:09 pm',
+          scheduled: 'Scheduled - in 4 min', alsoAt: '6:24 pm & 6:39 pm', rideStops: 3, rideMins: 6,
+          alightStop: 'University Transit Ctr', alightTime: '6:15 pm' },
+        { type: 'walk', duration: '3 min (180 m)' }
+      ]
+    },
+    {
+      note: "Fewer transfers", totalM: "33 min", range: "5:42 pm - 6:15 pm",
+      depFrom: "Churchill Station", detour: false,
+      legs: [
+        { type: 'walk', duration: '8 min (600 m)' },
+        { type: 'bus', route: '9', headsign: 'University', boardStop: 'Churchill Station', boardTime: '5:50 pm',
+          scheduled: 'Scheduled - in 8 min', rideStops: 12, rideMins: 22,
+          alightStop: 'University Transit Ctr', alightTime: '6:12 pm' },
+        { type: 'walk', duration: '3 min (140 m)' }
+      ]
+    },
+    {
+      note: "Least walking", totalM: "27 min", range: "5:41 pm - 6:08 pm",
+      depFrom: "104 St & Jasper Ave", detour: false,
+      legs: [
+        { type: 'walk', duration: '1 min (80 m)' },
+        { type: 'bus', route: '5', headsign: 'Southgate', boardStop: '104 St & Jasper Ave', boardTime: '5:44 pm',
+          scheduled: 'Scheduled - in 4 min', rideStops: 6, rideMins: 9,
+          alightStop: 'Churchill Station', alightTime: '5:53 pm' },
+        { type: 'bus', route: '9', headsign: 'University', boardStop: 'Churchill Station', boardTime: '5:56 pm',
+          scheduled: 'Scheduled - in 3 min', rideStops: 8, rideMins: 11,
+          alightStop: 'University Transit Ctr', alightTime: '6:07 pm' },
+        { type: 'walk', duration: '1 min (60 m)' }
+      ]
+    }
+  ];
+
+  function chainHtml(legs) {
+    return legs.map((leg, i) => {
+      let chip;
+      if (leg.type === 'walk') chip = `<span class="chain-chip">&#128694; ${leg.duration.split(' ')[0]}</span>`;
+      else if (leg.type === 'lrt') chip = `<span class="chain-chip lrt">${leg.route}</span>`;
+      else chip = `<span class="chain-chip bus">${leg.route}</span>`;
+      const sep = i < legs.length - 1 ? `<span class="chain-sep">&rsaquo;</span>` : '';
+      return chip + sep;
+    }).join('');
+  }
+
+  function renderOptions() {
+    const wrap = document.getElementById('options-list');
+    wrap.innerHTML = '';
+    routeOptions.forEach((opt, i) => {
+      const row = document.createElement('div');
+      row.className = 'option-row';
+      row.onclick = () => showDetail(i);
+      row.innerHTML = `
+        <div class="option-duration"><div class="h">${opt.totalM}</div></div>
+        <div class="option-body">
+          <div class="option-range">${opt.range}</div>
+          <div class="chain">${chainHtml(opt.legs)}</div>
+          <div class="option-dep">${opt.range.split(' - ')[0]} from ${opt.depFrom}</div>
+          ${opt.detour ? `<div class="option-detour">&#9888; Detour</div>` : ''}
+        </div>
+      `;
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderDetail(opt) {
+    document.getElementById('detail-total').textContent = opt.totalM;
+    document.getElementById('detail-arrive').textContent = `Arrive ${opt.range.split(' - ')[1]}`;
+    document.getElementById('detail-chain').innerHTML = chainHtml(opt.legs);
+
+    const tl = document.getElementById('detail-timeline');
+    tl.innerHTML = opt.legs.map((leg, i) => {
+      if (leg.type === 'walk') {
+        const showLive = i === 0;
+        return `
+          <div class="tl-item">
+            <div class="tl-icon walk">&#128694;</div>
+            <div class="tl-content">
+              <div class="tl-walk-title">Walk ${leg.duration}</div>
+              ${showLive ? `<div class="tl-live">&#128205; Live View</div>` : ''}
+            </div>
+          </div>`;
+      }
+
+      const isLrt = leg.type === 'lrt';
+      const icon = isLrt ? '&#128650;' : '&#128652;';
+      const next = opt.legs[i + 1];
+      const transferNote = (next && next.type !== 'walk')
+        ? `<div class="tl-transfer-note">Transfer to ${next.type === 'lrt' ? next.route : 'Bus ' + next.route} here</div>`
+        : '';
+
+      return `
+        <div class="tl-item">
+          <div class="tl-icon ${leg.type}">${icon}</div>
+          <div class="tl-content">
+            <div class="tl-transit-card">
+              <div class="tl-stop-row">
+                <div class="tl-stop-name">${leg.boardStop}</div>
+                <div class="tl-stop-time">${leg.boardTime}</div>
+              </div>
+              <div class="tl-badge-row">
+                <span class="tl-badge ${isLrt ? 'lrt' : ''}">${leg.route}</span>
+                <span class="tl-headsign">${leg.headsign}</span>
+              </div>
+              <div class="tl-scheduled">${leg.scheduled}</div>
+              ${leg.detour ? `<div class="tl-detour">&#9888; Detour on this route</div>` : ''}
+              ${leg.alsoAt ? `<details class="tl-expand"><summary>Also at ${leg.alsoAt}</summary></details>` : ''}
+              <details class="tl-expand">
+                <summary>Ride ${leg.rideStops} stops (${leg.rideMins} min)</summary>
+              </details>
+              <div class="tl-alight">
+                <div class="tl-stop-row" style="margin-bottom:0;">
+                  <div class="tl-stop-name">${leg.alightStop}</div>
+                  <div class="tl-stop-time">${leg.alightTime}</div>
+                </div>
+                ${leg.alightNote ? `<div class="tl-alight-note">${leg.alightNote}</div>` : ''}
+                ${transferNote}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  renderStops();
+</script>
+</body>
+</html

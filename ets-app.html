@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>ETS Route Planner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #eef2f5;
+            color: #202124;
+        }
+        /* ================================
+           PAGE
+        ================================= */
+        .page {
+            width: min(700px, 92%);
+            margin: 55px auto;
+        }
+        /* ================================
+           HEADER
+        ================================= */
+        .header {
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            margin: 0 0 8px;
+            font-size: 32px;
+            color: #202124;
+        }
+        .header p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 15px;
+        }
+        /* ================================
+           FORM
+        ================================= */
+        .route-form {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            border-top: 5px solid #005eb8;
+            box-shadow:
+                0 8px 30px
+                rgba(0, 0, 0, 0.08);
+        }
+
+
+        /* ================================
+           STOP CARD
+        ================================= */
+
+        .stop-card {
+            position: relative;
+
+            padding: 18px;
+
+            margin-bottom: 16px;
+
+            border: 1px solid #d9e0e6;
+
+            border-radius: 12px;
+
+            background: #fafcfd;
+
+            transition:
+                border-color 0.15s,
+                box-shadow 0.15s;
+        }
+
+
+        .stop-card:hover {
+
+            border-color: #b7c9d8;
+        }
+
+
+        /* ================================
+           STOP NUMBER
+        ================================= */
+
+        .stop-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+}
+        .remove-stop {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border: none;
+            border-radius: 50%;
+
+            background: #eef2f5;
+            color: #6b7280;
+
+            font-size: 20px;
+            font-weight: 400;
+
+            cursor: pointer;
+}
+        .remove-stop:hover {
+            background: #fce8e8;
+            color: #c62828;
+}
+
+
+        .stop-number {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            padding: 5px 10px;
+
+            border-radius: 20px;
+
+            background: #005eb8;
+
+            color: white;
+
+            font-size: 13px;
+
+            font-weight: 700;
+        }
+
+
+        /* ================================
+           LABELS
+        ================================= */
+
+        .stop-label {
+
+            display: block;
+
+            margin-bottom: 7px;
+
+            font-size: 13px;
+
+            font-weight: 600;
+
+            color: #4b5563;
+        }
+
+
+        /* ================================
+           SEARCH INPUT
+        ================================= */
+
+        .input-group {
+
+            position: relative;
+        }
+
+
+        .stop-input {
+
+            width: 100%;
+
+            height: 45px;
+
+            padding: 0 13px;
+
+            border: 1px solid #c8d1d9;
+
+            border-radius: 8px;
+
+            background: white;
+
+            color: #202124;
+
+            font-size: 15px;
+
+            outline: none;
+
+            transition:
+                border-color 0.15s,
+                box-shadow 0.15s;
+        }
+
+
+        .stop-input:focus {
+
+            border-color: #005eb8;
+
+            box-shadow:
+                0 0 0 3px
+                rgba(0, 94, 184, 0.12);
+        }
+
+
+        /* ================================
+           SUGGESTIONS
+        ================================= */
+
+        .suggestions {
+
+            position: absolute;
+
+            top: calc(100% + 4px);
+
+            left: 0;
+
+            right: 0;
+
+            background: white;
+
+            border: 1px solid #cbd5df;
+
+            border-radius: 8px;
+
+            box-shadow:
+                0 8px 20px
+                rgba(0, 0, 0, 0.12);
+
+            overflow: hidden;
+
+            z-index: 1000;
+        }
+
+
+        .suggestion {
+
+            padding: 12px 14px;
+
+            cursor: pointer;
+
+            font-size: 14px;
+
+            border-bottom:
+                1px solid #edf0f2;
+
+            transition:
+                background 0.12s;
+        }
+
+
+        .suggestion:last-child {
+
+            border-bottom: none;
+        }
+
+
+        .suggestion:hover {
+
+            background: #eaf4fb;
+        }
+
+
+        /* ================================
+           TIME SECTION
+        ================================= */
+
+        .time-section {
+
+            margin-top: 15px;
+        }
+
+
+        .time-label {
+
+            display: block;
+
+            margin-bottom: 7px;
+
+            font-size: 13px;
+
+            font-weight: 600;
+
+            color: #4b5563;
+        }
+
+
+        .time-input {
+
+            width: 100%;
+
+            height: 45px;
+
+            padding: 0 12px;
+
+            border: 1px solid #c8d1d9;
+
+            border-radius: 8px;
+
+            background: white;
+
+            color: #202124;
+
+            font-size: 16px;
+
+            outline: none;
+
+            cursor: pointer;
+
+            transition:
+                border-color 0.15s,
+                box-shadow 0.15s;
+        }
+
+
+        .time-input:focus {
+
+            border-color: #005eb8;
+
+            box-shadow:
+                0 0 0 3px
+                rgba(0, 94, 184, 0.12);
+        }
+
+
+        .time-hint {
+
+            margin-top: 6px;
+
+            font-size: 12px;
+
+            color: #6b7280;
+        }
+
+
+        /* ================================
+           BUTTONS
+        ================================= */
+
+        .button-row {
+
+            display: flex;
+
+            gap: 10px;
+
+            margin-top: 24px;
+        }
+
+
+        button,
+        input[type="submit"] {
+
+            height: 45px;
+
+            border: none;
+
+            border-radius: 8px;
+
+            padding: 0 18px;
+
+            font-size: 14px;
+
+            font-weight: 600;
+
+            cursor: pointer;
+
+            transition:
+                background 0.15s,
+                transform 0.1s,
+                opacity 0.15s;
+        }
+
+
+        /* ADD STOP */
+
+        .add-stop {
+
+            background: #e8b923;
+
+            color: #202124;
+        }
+
+
+        .add-stop:hover {
+
+            background: #dcae18;
+        }
+
+
+        /* SEARCH ROUTES */
+
+        .submit-button {
+
+            flex: 1;
+
+            background: #005eb8;
+
+            color: white;
+        }
+
+
+        .submit-button:hover {
+
+            background: #004d96;
+        }
+
+
+        button:active,
+        input[type="submit"]:active {
+
+            transform: scale(0.98);
+        }
+
+
+        /* ================================
+           MOBILE
+        ================================= */
+
+        @media (max-width: 550px) {
+
+            .page {
+
+                width: 94%;
+
+                margin: 30px auto;
+            }
+
+
+            .route-form {
+
+                padding: 18px;
+            }
+
+
+            .header h1 {
+
+                font-size: 26px;
+            }
+
+
+            .button-row {
+
+                flex-direction: column;
+            }
+
+
+            .add-stop,
+            .submit-button {
+
+                width: 100%;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div class="page">
+
+
+    <!-- =================================
+         HEADER
+    ================================== -->
+
+    <div class="header">
+
+        <h1>ETS Route Planner</h1>
+
+        <p>
+            Choose your stops and find the best route.
+        </p>
+
+    </div>
+
+    <!-- =================================
+         ROUTE FORM
+    ================================== -->
+
+    <form
+        id="route-form"  
+    </form>
+    >
+        <!-- =================================
+             STOP 1
+        ================================== -->
+
+        <div class="stop-card">
+            <div class="stop-header">
+                <span class="stop-number">
+                    Stop 1
+                </span>
+            </div>
+            <label
+                class="stop-label"
+                for="stop1"
+            >
+                Departure stop
+            </label>
+
+
+            <div class="input-group">
+
+
+                <input
+                    type="search"
+                    id="stop1"
+                    name="stop1"
+                    class="stop-input"
+                    placeholder="Search for a stop..."
+                    autocomplete="off"
+                    required
+                >
+
+
+                <div class="suggestions"></div>
+
+
+            </div>
+
+
+
+            <!-- ONLY STOP 1 HAS TIME -->
+
+            <div class="time-section">
+                <label
+                    class="time-label"
+                    for="time1"
+                >
+                    Departure time
+                </label>
+                <input
+                    type="time"
+                    id="time1"
+                    name="time1"
+                    class="time-input"
+                    step="60"
+                >
+
+
+                <div class="time-hint">
+
+                    Leave blank to depart now.
+
+                </div>
+            </div>
+        </div>
+
+        <!-- =================================
+             EXTRA STOPS
+        ================================== -->
+
+        <div id="extra-stops"></div>
+        <!-- =================================
+             BUTTONS
+        ================================== -->
+
+        <div class="button-row">
+            <button
+                type="button"
+                class="add-stop"
+                onclick="addStop()"
+            >
+                + Add Stop
+            </button>
+
+
+            <input
+                type="submit"
+                class="submit-button"
+                value="Search Routes"
+            >
+
+
+        </div>
+
+
+    </form>
+
+
+</div>
+
+
+
+<script>
+/* ==================================================
+   STOP COUNT
+================================================== */
+let stop_count = 1;
+/* ==================================================
+   ADD STOP
+================================================== */
+
+function addStop() {
+
+    stop_count++;
+
+    if (stop_count > 4) {
+        alert("Limit of 4 stops");
+        stop_count--;
+        return;
+    }
+
+    const wrapper = document.createElement("div");
+
+    wrapper.className = "stop-card";
+
+    wrapper.innerHTML = `
+        <div class="stop-header">
+
+            <span class="stop-number">
+                Stop ${stop_count}
+            </span>
+
+            <button
+                type="button"
+                class="remove-stop"
+                aria-label="Remove stop"
+            >
+                −
+            </button>
+
+        </div>
+
+        <label class="stop-label">
+            Next stop
+        </label>
+
+        <div class="input-group">
+
+            <input
+                type="search"
+                name="stop_n[]"
+                class="stop-input"
+                placeholder="Search for a stop..."
+                autocomplete="off"
+                required
+            >
+
+            <div class="suggestions"></div>
+
+        </div>
+    `;
+
+
+    document
+        .querySelector("#extra-stops")
+        .appendChild(wrapper);
+    /* Remove this specific stop */
+    wrapper
+        .querySelector(".remove-stop")
+        .addEventListener("click", () => {
+            wrapper.remove();
+             stop_count =
+            document.querySelectorAll(".stop-card").length;
+            renumberStops();
+        });
+    /* Give the new input autocomplete */
+    attachStopBehavior(
+        wrapper.querySelector(".stop-input")
+    );
+
+}
+/*renumbers stops when stops are removed*/
+function renumberStops() {
+
+    const stopCards =
+        document.querySelectorAll(".stop-card");
+
+    stopCards.forEach((card, index) => {
+
+        const number =
+            card.querySelector(".stop-number");
+
+        number.textContent =
+            `Stop ${index + 1}`;
+
+    });
+
+}
+
+
+/* ==================================================
+   LOAD KNOWN STOPS
+================================================== */
+let knownStops = [];
+fetch("stopsRouteJoin.json")
+    .then(response => response.json())
+    .then(data => {
+        knownStops = [
+            ...new Set(
+                data.map(stop => stop.name)
+            )
+        ];
+        console.log(
+            "Loaded stops:",
+            knownStops
+        );
+    })
+    .catch(err => {
+        console.error(
+            "Failed to load stops:",
+            err
+        );
+
+    });
+
+
+
+/* ==================================================
+   STOP SEARCH + VALIDATION
+================================================== */
+
+function attachStopBehavior(input) {
+
+
+    /*
+     * The suggestions div is immediately
+     * after the input.
+     */
+    const suggestions =
+        input.nextElementSibling;
+    /* ==============================================
+       LIVE SEARCH
+    ============================================== */
+
+    input.addEventListener(
+        "input",() => {const query = input.value.trim().toLowerCase();
+            /* Nothing typed */
+            if (query === "") {
+                suggestions.innerHTML = "";
+                input.setCustomValidity("");
+                return;
+            }
+            /* Find matching stops */
+            const matches =
+                knownStops.filter(stop =>
+
+                    stop
+                        .toLowerCase()
+                        .includes(query)
+
+                );
+            /* Show maximum 3 */
+            suggestions.innerHTML =
+                matches
+                    .slice(0, 3)
+                    .map(stop =>
+                        `<div class="suggestion">
+                            ${stop}
+                        </div>`
+                    )
+                    .join("");
+
+        }
+    );
+/*so that suggestions list closes when another box is clicked*/
+    input.addEventListener("focus", () => {
+
+    document.querySelectorAll(".suggestions").forEach(box => {
+
+        if (box !== suggestions) {
+            box.innerHTML = "";
+        }
+
+    });
+});
+
+    /* ==============================================
+       CLICK SUGGESTION
+    ============================================== */
+
+    /*
+     * Listener is attached to the suggestions
+     * container instead of individual suggestions.
+     */
+
+    suggestions.addEventListener(
+        "mousedown",
+        event => {
+            const suggestion =
+                event.target.closest(
+                    ".suggestion"
+                );
+            if (!suggestion) {
+                return;
+            }
+            /* Put selected stop into input */
+            input.value =
+                suggestion.textContent.trim();
+            /* Hide suggestions */
+            suggestions.innerHTML = "";
+            /* Selected stop is valid */
+
+            input.setCustomValidity("");
+
+        }
+    );
+    /* ==============================================
+       VALIDATE WHEN USER LEAVES INPUT
+    ============================================== */
+    input.addEventListener(
+        "blur",
+        () => {
+            /*
+             * Small delay allows the suggestion's
+             * mousedown event to run first.
+             */
+            setTimeout(() => {
+                const value =
+                    input.value.trim();
+                /* Empty input */
+                if (value === "") {
+                    return;
+                }
+                /* Check against known stops */
+                const isKnown =knownStops.some(stop =>stop.toLowerCase() === value.toLowerCase()
+                    );
+            }, 150);
+        }
+    );
+
+}
+/* ==================================================
+   INITIAL STOP INPUTS
+================================================== */
+
+document
+    .querySelectorAll(".stop-input")
+    .forEach(attachStopBehavior);
+addStop(); /*Automatically loads stop 2 when page loads*/
+/* =================================================
+   FORM SUBMISSION
+================================================== */
+const form =
+    document.querySelector(".route-form");
+form.addEventListener(
+    "submit",
+    () => {
+        const departureTime =
+            document.getElementById("time1");
+        /*
+         * If the user didn't select a time,
+         * automatically use the current local time.
+         */
+        if (departureTime.value === "") {
+            const now = new Date();
+            const hours =String(now.getHours()).padStart(2, "0");
+            const minutes =String(now.getMinutes()).padStart(2, "0");
+            departureTime.value =`${hours}:${minutes}`;
+        }
+    }
+);
+/*Collects all user inputs for backend and geocoding*/
+const inputs = document.querySelectorAll(".stop-input");
+
+const stops = Array.from(inputs).map(input => ({
+    name: input.value.trim()
+}));
+
+console.log(stops);
+</script>
+</body>
+</html>
