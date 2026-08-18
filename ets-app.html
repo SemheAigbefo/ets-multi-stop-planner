@@ -483,9 +483,7 @@
          ROUTE FORM
     ================================== -->
 
-    <form
-        id="route-form"  
-    </form>
+    <form id="route-form"  >
     >
         <!-- =================================
              STOP 1
@@ -839,32 +837,42 @@ addStop(); /*Automatically loads stop 2 when page loads*/
    FORM SUBMISSION
 ================================================== */
 const form =
-    document.querySelector(".route-form");
-form.addEventListener(
-    "submit",
-    () => {
-        const departureTime =
-            document.getElementById("time1");
-        /*
-         * If the user didn't select a time,
-         * automatically use the current local time.
-         */
-        if (departureTime.value === "") {
-            const now = new Date();
-            const hours =String(now.getHours()).padStart(2, "0");
-            const minutes =String(now.getMinutes()).padStart(2, "0");
-            departureTime.value =`${hours}:${minutes}`;
-        }
+    document.getElementById("route-form");
+form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+     //console.log("🚨 FORM SUBMITTED");
+    const departureTime = document.getElementById("time1");
+    /*
+     * If the user didn't select a time,
+     * automatically use the current local time.
+     */
+    if (departureTime.value === "") {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        departureTime.value = `${hours}:${minutes}`;
     }
-);
-/*Collects all user inputs for backend and geocoding*/
-const inputs = document.querySelectorAll(".stop-input");
+    /* Collect all user inputs */
+    const inputs = document.querySelectorAll(".stop-input");
+    const stops = Array.from(inputs).map(input => ({
+        name: input.value.trim()
+    }));
+    console.log(stops);
+    /* Send data to backend */
+    const response = await fetch("http://localhost:3000/api/route", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            stops: stops,
+            departureTime: departureTime.value
+        })
+    });
+    const result = await response.json();
+    console.log(result);
+});
 
-const stops = Array.from(inputs).map(input => ({
-    name: input.value.trim()
-}));
-
-console.log(stops);
 </script>
 </body>
 </html>
