@@ -1,14 +1,4 @@
-First Commit(client-side):   Stop autocomplete/validation
-                Adding/removing stops, up to 4
-                Stop 1 having an optional departure time
-                If Stop 1 time is blank, use the current local time
-                Stops 2–4 don't have their own time inputs
-                Allow user to enter location of a place for geocoding
-TODO for screen1:   add departure times from stops 2-4
-                    implement stop reversal
-                    implement stop toggling
-
-relay/
+ets-app/
 ├── data/
 │   ├── raw/
 │   │   └── GTFS .txt files
@@ -38,10 +28,20 @@ relay/
 │
 └── ets-app.html
 
+First Commit(client-side):   Stop autocomplete/validation
+                Adding/removing stops, up to 4
+                Stop 1 having an optional departure time
+                If Stop 1 time is blank, use the current local time
+                Stops 2–4 don't have their own time inputs
+                Allow user to enter location of a place for geocoding
+TODO for screen1:   add departure times from stops 2-4
+                    implement stop reversal
+                    implement stop toggling
+
 Notes: port number should not be harcoded when in liver server,use industry standard port 
 
 Second commit:      Fixed use case of west edmonton mall vs west edmonton mall transit centre
-                        solution: added an event listener called bos, see code for more, ets-app.html
+                        solution: added an event listener called focus, see code for more, ets-app.html
                     Created server.js backend/API endpoint
                     buildIndexes.js for fast lookup (hashmap and KD tree later)
                     Connected frontend to backend
@@ -51,6 +51,9 @@ Second commit:      Fixed use case of west edmonton mall vs west edmonton mall t
                                     <form id = route-form ... </form>
                                     document.querySelector(".route-form"), . is used for class not id
                                     used document.getElementById("route-form")
+                    Fixed the live server vs Node server, by modify route to port 3000 (node server)
+                    Added cors because of differences in frontend and backend origins
+                    architecture works, backend recieves user input successfully with no errors.
 
 
 

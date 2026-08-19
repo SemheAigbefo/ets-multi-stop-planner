@@ -722,8 +722,7 @@ function attachStopBehavior(input) {
      * The suggestions div is immediately
      * after the input.
      */
-    const suggestions =
-        input.nextElementSibling;
+    const suggestions = input.nextElementSibling; //suggestions represents the suggestion box belonging to the input the user just clicked
     /* ==============================================
        LIVE SEARCH
     ============================================== */
@@ -758,13 +757,16 @@ function attachStopBehavior(input) {
 
         }
     );
-/*so that suggestions list closes when another box is clicked*/
-    input.addEventListener("focus", () => {
-
+/*so that suggestions list closes when another box is clicked
+box = Stop 1's suggestions
+box = Stop 2's suggestions
+box = Stop 3's suggestions
+box = Stop 4's suggestions
+suggestions = suggestion box belonging to the input the user clicked */
+    input.addEventListener("focus", () => { //method that triggers when a box recieves focus
     document.querySelectorAll(".suggestions").forEach(box => {
-
         if (box !== suggestions) {
-            box.innerHTML = "";
+            box.innerHTML = ""; //empty suggestion box
         }
 
     });
@@ -859,18 +861,22 @@ form.addEventListener("submit", async (event) => {
     }));
     console.log(stops);
     /* Send data to backend */
-    const response = await fetch("http://localhost:3000/api/route", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            stops: stops,
-            departureTime: departureTime.value
-        })
-    });
-    const result = await response.json();
-    console.log(result);
+   const response = await fetch("http://localhost:3000/api/route", {
+    method: "POST",
+
+    headers: {
+        "Content-Type": "application/json"
+    },
+
+    body: JSON.stringify({
+        stops,
+        departureTime: departureTime.value
+    })
+});
+
+const data = await response.json();
+
+console.log("Backend response:", data);
 });
 
 </script>
