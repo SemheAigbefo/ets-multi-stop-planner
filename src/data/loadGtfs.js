@@ -65,6 +65,7 @@ function buildStopsRouteJoin() {
   const routes = readGtfsFile('routes.txt');
   const trips = readGtfsFile('trips.txt');
   const stopTimes = readGtfsFile('stop_times.txt');
+  const calendarDates = readGtfsFile('calendar_dates.txt');
 
   // trip_id -> route_id
   const tripToRoute = {};
@@ -109,4 +110,11 @@ function main() {
   console.log(`Wrote ${joined.length} stops to ${OUT_FILE}`);
 }
 
-main();
+//main();
+if (require.main === module) {
+    main();
+}
+
+module.exports = {
+    readGtfsFile
+}; // to allow us resuse the parser for other modules

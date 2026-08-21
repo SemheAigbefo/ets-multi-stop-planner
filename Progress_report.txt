@@ -55,5 +55,15 @@ Second commit:      Fixed use case of west edmonton mall vs west edmonton mall t
                     Added cors because of differences in frontend and backend origins
                     architecture works, backend recieves user input successfully with no errors.
 
+Third commit:       Implemented KD trees in nearest stop.js, calsulated best distance
+                    indexes are created when server starts
+                    POST api ->recieves stops and departure time->sends to coord.js to get coord
+                    from geocoding api or stopRouteJoin.json->sends thosse coord to nearest stop to find nearest stops with KD
+                    tree,nearest stops and corresponding routes are returned as json 
+                    KD is not walking route, need to use google api to calc that
+                    
+Fourth commit:      Given 2 places, return ets routes that connect them
+                    stop times abd trips are connected by trip id
+                    establis tripsByRoute and stopTimesbyTrip,servicebyDate
 
 
