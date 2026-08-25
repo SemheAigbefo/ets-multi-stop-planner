@@ -888,37 +888,62 @@ if (travelDate === "") {
         `${year}-${month}-${day}`;
 }
 
-    const gtfsTravelDate =
+   const gtfsTravelDate =
     travelDate.replaceAll("-", "");
 
-    /* Collect all user inputs */
-    const inputs = document.querySelectorAll(".stop-input");
-    const stops = Array.from(inputs).map(input => ({
+const localDeparture =
+    new Date(
+        `${travelDate}T${departureTime.value}:00`
+    );
+
+const departureDateTime =
+    localDeparture.toISOString();
+
+
+/* Collect all user inputs */
+const inputs =
+    document.querySelectorAll(".stop-input");
+
+const stops =
+    Array.from(inputs).map(input => ({
         name: input.value.trim()
     }));
-    console.log(stops);
-    /* Send data to backend */
-   const response = await fetch("http://localhost:3000/api/route", {
-    method: "POST",
 
-    headers: {
-        "Content-Type": "application/json"
-    },
 
-    body: JSON.stringify({
-        stops,
-        departureTime: departureTime.value
-    }),
-    body: JSON.stringify({
-    stops,
-    departureTime: departureTime.value,
-    travelDate: gtfsTravelDate
-})
-});
+/* Send data to backend */
+const response =
+    await fetch(
+        "http://localhost:3000/api/route",
+        {
+            method: "POST",
 
-const data = await response.json();
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
 
-console.log("Backend response:", data);
+            body: JSON.stringify({
+                stops,
+
+                departureTime:
+                    departureTime.value,
+
+                travelDate:
+                    gtfsTravelDate,
+
+                departureDateTime:
+                    departureDateTime
+            })
+        }
+    );
+
+const data =
+    await response.json();
+
+console.log(
+    "Backend response:",
+    data
+);
 });
 
 </script>

@@ -65,5 +65,20 @@ Third commit:       Implemented KD trees in nearest stop.js, calsulated best dis
 Fourth commit:      Given 2 places, return ets routes that connect them
                     stop times abd trips are connected by trip id
                     establis tripsByRoute and stopTimesbyTrip,servicebyDate
+Fifth commit:       feat: add schedule-aware direct transit routing
+
+- implement GTFS trip, stop-time, and service-date indexes
+- support multiple physical GTFS stop IDs for transit centres
+- preserve and combine routes across transit centre bays/platforms
+- add direct route detection between origin and destination
+- add scheduled direct trip matching using GTFS stop sequences
+- validate trip direction by ensuring origin precedes destination
+- filter trips by active service date and requested departure time
+- sort valid direct trips by departure time
+- add travel date support to frontend and backend route requests
+- update coordinate lookup for multi-stop transit locations
+- improve routing/debug logging for GTFS trip processing
+- fix stopMap overwriting duplicate stop names
+- fix inefficient stop-time sorting during index construction
 
 

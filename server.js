@@ -24,6 +24,14 @@ const findDirectRoutes =
 
 const findDirectTrips =
     require("./src/routing/findDirectTrips");
+const selectBestDirectTrip =
+    require("./src/routing/selectBestDirectTrip");
+const findTransferOptions =
+    require("./src/routing/findTransferOptions");
+const findTransferTrips =
+    require("./src/routing/findTransferTrips");
+const getGoogleTransitRoutes =
+    require("./src/routing/getGoogleTransitRoutes");
 
 
 const app = express(); //instance of Express application
@@ -124,21 +132,9 @@ app.post("/api/route", async (req, res) => {
     const {
         stops,
         departureTime,
-        travelDate
+        travelDate,
+        departureDateTime
     } = req.body; //object destructuring; extract properties stops and departureTime from request
-
-
-    console.log(
-        "Stops:",
-        stops
-    );
-
-
-    console.log(
-        "Departure time:",
-        departureTime
-    );
-
 
     try {
 
@@ -165,6 +161,7 @@ app.post("/api/route", async (req, res) => {
             let physicalStops;
 
             let kdDistance;
+            
 
 
             /*
@@ -362,11 +359,12 @@ app.post("/api/route", async (req, res) => {
 
         let directTrips = [];
 
+        let transferOptions = [];
 
-        console.log(
-            "Processed results length:",
-            results.length
-        );
+        let transferTrips = [];
+    let bestDirectTrip = null;
+let bestTransferTrip = null;
+        let googleTransitRoutes = [];
 
 
         /*
@@ -383,52 +381,6 @@ app.post("/api/route", async (req, res) => {
                 results[1].routingStop;
 
 
-            // --------------------------------
-            // TEMPORARY DEBUGGING
-            // --------------------------------
-
-            console.log(
-                "Origin:",
-                originStop.name
-            );
-
-
-            console.log(
-                "Origin stop IDs:",
-                originStop.stopIds
-            );
-
-
-            console.log(
-                "Origin route IDs:",
-                originStop.routes.map(
-                    route =>
-                        route.routeId
-                )
-            );
-
-
-            console.log(
-                "Destination:",
-                destinationStop.name
-            );
-
-
-            console.log(
-                "Destination stop IDs:",
-                destinationStop.stopIds
-            );
-
-
-            console.log(
-                "Destination route IDs:",
-                destinationStop.routes.map(
-                    route =>
-                        route.routeId
-                )
-            );
-
-
             /*
              * findDirectRoutes only needs the routes
              * property, so it can already work with our
@@ -439,13 +391,6 @@ app.post("/api/route", async (req, res) => {
                     originStop,
                     destinationStop
                 );
-
-
-            console.log(
-                "Direct routes result:",
-                directRoutes
-            );
-
 
             /*
  * Find actual scheduled trips on the
@@ -466,11 +411,71 @@ directTrips =
         departureTime
     );
 
+bestDirectTrip =
+    selectBestDirectTrip(directTrips);
+transferOptions =
+    findTransferOptions(
+        originStop,
+        destinationStop,
+        stopMap
+    );
+
+transferTrips =
+    findTransferTrips(
+        transferOptions,
+        originStop,
+        destinationStop,
+        tripsByRoute,
+        stopTimesByTrip,
+        serviceByDate,
+        travelDate,
+        departureTime,
+        5
+    );
+
+bestTransferTrip =
+    transferTrips[0] || null;
+
+console.log("Routing summary:", {
+    origin: originStop.name,
+    destination: destinationStop.name,
+    date: travelDate,
+    departureTime,
+    directTrips: directTrips.length,
+    transferOptions: transferOptions.length,
+    validTransferTrips: transferTrips.length,
+    bestDirectRoute:
+        bestDirectTrip?.routeId || null,
+    bestTransferRoutes:
+        bestTransferTrip
+            ? [
+                bestTransferTrip.firstLeg.routeId,
+                bestTransferTrip.secondLeg.routeId
+            ]
+            : null
+});
+
 console.log(
-    "Direct trips result:",
-    directTrips
+    `All transfer options (${transferOptions.length}):`
 );
-console.log("Date:",travelDate)
+
+console.table(
+    transferOptions.map(
+        (option, index) => ({
+            number:
+                index + 1,
+
+            transferStop:
+                option.transferStop.name,
+
+            firstRoute:
+                option.firstRoute.routeId,
+
+            secondRoute:
+                option.secondRoute.routeId
+        })
+    )
+);
         }
 
 
@@ -492,7 +497,9 @@ console.log("Date:",travelDate)
                 directRoutes,
 
             directTrips:
-                directTrips
+                directTrips,
+            transferOptions:
+                transferOptions
         });
 
 

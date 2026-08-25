@@ -48,13 +48,7 @@ function findDirectTrips(
     const activeServices =
         serviceByDate.get(date);
 
-    console.log(
-        "Active services for date:",
-        activeServices?.size
-    );
-
     if (!activeServices) {
-        console.log("No active services found.");
         return results;
     }
 
@@ -70,39 +64,12 @@ function findDirectTrips(
         new Set(destinationStop.stopIds);
 
 
-    console.log(
-        "Origin stop IDs:",
-        [...originStopIds]
-    );
-
-    console.log(
-        "Destination stop IDs:",
-        [...destinationStopIds]
-    );
-
-
-    let totalTrips = 0;
-    let activeServiceTrips = 0;
-    let tripsWithStopTimes = 0;
-    let tripsWithOrigin = 0;
-    let tripsWithDestination = 0;
-    let correctDirection = 0;
-    let afterDepartureTime = 0;
-
-
     for (const route of directRoutes) {
 
         const trips =
             tripsByRoute.get(route.routeId) || [];
 
-        console.log(
-            `Route ${route.routeId} has ${trips.length} trips`
-        );
-
-
         for (const trip of trips) {
-
-            totalTrips++;
 
 
             /*
@@ -117,9 +84,6 @@ function findDirectTrips(
                 continue;
             }
 
-            activeServiceTrips++;
-
-
             const stopTimes =
                 stopTimesByTrip.get(
                     trip.tripId
@@ -128,9 +92,6 @@ function findDirectTrips(
             if (!stopTimes) {
                 continue;
             }
-
-            tripsWithStopTimes++;
-
 
             const originMatches =
                 stopTimes.filter(
@@ -145,9 +106,6 @@ function findDirectTrips(
                 continue;
             }
 
-            tripsWithOrigin++;
-
-
             const destinationMatches =
                 stopTimes.filter(
                     stopTime =>
@@ -160,9 +118,6 @@ function findDirectTrips(
             if (destinationMatches.length === 0) {
                 continue;
             }
-
-            tripsWithDestination++;
-
 
             let validOrigin = null;
             let validDestination = null;
@@ -200,9 +155,6 @@ function findDirectTrips(
                 continue;
             }
 
-            correctDirection++;
-
-
             const tripDeparture =
                 timeToSeconds(
                     validOrigin.departureTime
@@ -215,9 +167,6 @@ function findDirectTrips(
             ) {
                 continue;
             }
-
-            afterDepartureTime++;
-
 
             results.push({
 
@@ -244,46 +193,6 @@ function findDirectTrips(
             });
         }
     }
-
-
-    console.log("----- DIRECT TRIP DEBUG -----");
-
-    console.log(
-        "Total trips checked:",
-        totalTrips
-    );
-
-    console.log(
-        "Active-service trips:",
-        activeServiceTrips
-    );
-
-    console.log(
-        "Trips with stopTimes:",
-        tripsWithStopTimes
-    );
-
-    console.log(
-        "Trips containing origin:",
-        tripsWithOrigin
-    );
-
-    console.log(
-        "Trips containing destination:",
-        tripsWithDestination
-    );
-
-    console.log(
-        "Trips in correct direction:",
-        correctDirection
-    );
-
-    console.log(
-        "Trips after departure time:",
-        afterDepartureTime
-    );
-
-    console.log("-----------------------------");
 
 
     results.sort(
