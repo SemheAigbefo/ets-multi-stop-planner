@@ -4,6 +4,9 @@
 // Number of dimensions
 const k = 2;
 
+// Mean Earth radius used by the Haversine calculation.
+const EARTH_RADIUS_METRES = 6371008.8;
+
 
 // Represents one node in the KD tree
 class Node {
@@ -79,6 +82,30 @@ function distanceSquared(point1, point2) {
     return (
         latDifference * latDifference +
         lonDifference * lonDifference
+    );
+}
+
+
+function toRadians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+
+/* Straight-line surface distance suitable for walking limits. */
+function distanceMetres(lat1, lon1, lat2, lon2) {
+    const latitudeDifference = toRadians(lat2 - lat1);
+    const longitudeDifference = toRadians(lon2 - lon1);
+    const firstLatitude = toRadians(lat1);
+    const secondLatitude = toRadians(lat2);
+
+    const haversine =
+        Math.sin(latitudeDifference / 2) ** 2 +
+        Math.cos(firstLatitude) *
+        Math.cos(secondLatitude) *
+        Math.sin(longitudeDifference / 2) ** 2;
+
+    return 2 * EARTH_RADIUS_METRES * Math.asin(
+        Math.min(1, Math.sqrt(haversine))
     );
 }
 
@@ -166,8 +193,107 @@ function nearest(root, lat, lon) {
 }
 
 
+/* Finds every physical stop inside the requested radius. */
+function withinRadiusRec(root, target, radiusMetres, depth, matches) {
+    if (!root) {
+        return;
+    }
+
+    const [targetLat, targetLon] = target;
+    const currentDistance = distanceMetres(
+        targetLat,
+        targetLon,
+        Number(root.point[0]),
+        Number(root.point[1])
+    );
+
+    if (currentDistance <= radiusMetres) {
+        matches.push({
+            stop: root.stop,
+            distanceMetres: currentDistance
+        });
+    }
+
+    const cd = depth % k;
+    const differenceDegrees =
+        target[cd] - Number(root.point[cd]);
+    const nearBranch = differenceDegrees < 0
+        ? root.left
+        : root.right;
+    const farBranch = differenceDegrees < 0
+        ? root.right
+        : root.left;
+
+    withinRadiusRec(
+        nearBranch,
+        target,
+        radiusMetres,
+        depth + 1,
+        matches
+    );
+
+    /* Convert distance from the KD split plane into metres. */
+    const metresPerDegree = cd === 0
+        ? 111320
+        : 111320 * Math.max(
+            0.01,
+            Math.cos(toRadians(targetLat))
+        );
+
+    if (
+        Math.abs(differenceDegrees) * metresPerDegree <=
+        radiusMetres
+    ) {
+        withinRadiusRec(
+            farBranch,
+            target,
+            radiusMetres,
+            depth + 1,
+            matches
+        );
+    }
+}
+
+
+/* Returns nearby stops ordered from closest to farthest. */
+function withinRadius(root, lat, lon, radiusMetres) {
+    const numericLat = Number(lat);
+    const numericLon = Number(lon);
+    const numericRadius = Number(radiusMetres);
+
+    if (
+        !Number.isFinite(numericLat) ||
+        !Number.isFinite(numericLon) ||
+        !Number.isFinite(numericRadius) ||
+        numericRadius < 0
+    ) {
+        throw new TypeError(
+            "withinRadius requires valid coordinates and a non-negative radius"
+        );
+    }
+
+    const matches = [];
+
+    withinRadiusRec(
+        root,
+        [numericLat, numericLon],
+        numericRadius,
+        0,
+        matches
+    );
+
+    matches.sort(
+        (a, b) => a.distanceMetres - b.distanceMetres
+    );
+
+    return matches;
+}
+
+
 module.exports = {
     Node,
     insert,
-    nearest
+    nearest,
+    withinRadius,
+    distanceMetres
 };

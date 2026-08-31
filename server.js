@@ -12,26 +12,21 @@ const buildIndexes =
 const getCoordinates =
     require("./src/geocode/coordFun"); //imports geocoding function
 
-const {
-    nearest
-} = require("./src/spatial/nearestStop"); //imports KD-tree nearest-stop function
+const selectEndpointStops =
+    require("./src/spatial/selectEndpointStops");
 
 const getRoutesByStop =
     require("./src/routes/getRouteByStop");
 
-const findDirectRoutes =
-    require("./src/routing/findDirectRoutes");
+const planMultiStopTrip =
+    require("./src/routing/planMultiStopTrip");
 
-const findDirectTrips =
-    require("./src/routing/findDirectTrips");
-const selectBestDirectTrip =
-    require("./src/routing/selectBestDirectTrip");
-const findTransferOptions =
-    require("./src/routing/findTransferOptions");
-const findTransferTrips =
-    require("./src/routing/findTransferTrips");
-const getGoogleTransitRoutes =
-    require("./src/routing/getGoogleTransitRoutes");
+const findDirectionalTransferConnections =
+    require("./src/routing/transfers/findDirectionalTransferConnections");
+
+const {
+    gtfsTimeToSeconds
+} = require("./src/routing/graph/gtfsTime");
 
 
 const app = express(); //instance of Express application
@@ -68,6 +63,7 @@ app.use(express.json()); //middleware that tells Exp serv to read and parse inco
  */
 const {
     stopMap,
+    stopById,
     kdTree,
     tripsByRoute,
     stopTimesByTrip,
@@ -121,6 +117,182 @@ function combineRoutes(stops) {
 }
 
 
+/* Prints the actual journey a rider would follow, without internal search data. */
+function printRecommendedJourney(multiStopTrip) {
+    if (!multiStopTrip?.legs?.length) return;
+
+    console.log("\nRECOMMENDED JOURNEY");
+
+    for (const leg of multiStopTrip.legs) {
+        console.log(
+            `\nLeg ${leg.legNumber}: ${leg.origin} -> ${leg.destination}`
+        );
+        console.log(
+            `Leave ${leg.actualDepartureTime}; arrive ${leg.arrivalTime}`
+        );
+
+        const actions = leg.itinerary?.itinerary || [];
+
+        console.table(actions.map((action, index) => {
+            const fromStop = stopById.get(String(action.fromStopId));
+            const toStop = stopById.get(String(action.toStopId));
+
+            if (action.type === "transit") {
+                return {
+                    step: index + 1,
+                    instruction:
+                        `Take bus ${action.routeId}` +
+                        (action.headsign
+                            ? ` toward ${action.headsign}`
+                            : ""),
+                    from: fromStop?.name || action.fromStopId,
+                    to: toStop?.name || action.toStopId,
+                    depart: action.departureTime,
+                    arrive: action.arrivalTime,
+                    duration: ""
+                };
+            }
+
+            return {
+                step: index + 1,
+                instruction: "Walk",
+                from:
+                    fromStop?.name ||
+                    (action.fromLocation ? leg.origin : action.fromStopId),
+                to:
+                    toStop?.name ||
+                    (action.toLocation ? leg.destination : action.toStopId),
+                depart: "",
+                arrive: "",
+                duration:
+                    `${Math.ceil(action.durationSeconds / 60)} min` +
+                    (Number.isFinite(action.distanceMetres)
+                        ? `, ${Math.round(action.distanceMetres)} m`
+                        : "")
+            };
+        }));
+    }
+
+    console.log("Journey result:", {
+        success: multiStopTrip.success,
+        journeyType: multiStopTrip.journeyType,
+        finalArrivalTime: multiStopTrip.finalArrivalTime || null
+    });
+}
+
+
+/* Prints only the useful output from the new transfer-recovery pipeline. */
+function printDirectionalTransferRecovery(recovery) {
+    if (!recovery) return;
+
+    console.log("Transfer recovery candidates:", recovery.counts);
+
+    if (!recovery.success || !recovery.bestConnection) {
+        console.log("Transfer recovery result:", recovery.reason);
+        return;
+    }
+
+    const connection = recovery.bestConnection;
+    const first = connection.firstTrip;
+    const transfer = connection.transfer;
+    const second = connection.secondTrip;
+    const firstBoardingStop = stopById.get(
+        String(first.originBoardingStopId)
+    );
+    const firstExitStop = stopById.get(String(transfer.fromStopId));
+    const secondBoardingStop = stopById.get(String(transfer.toStopId));
+    const destinationStop = stopById.get(
+        String(second.destinationStopId)
+    );
+
+    const steps = [
+        {
+            step: 1,
+            type: "BUS",
+            route: first.routeId,
+            headsign: first.headsign || "",
+            from: firstBoardingStop?.name || first.originBoardingStopId,
+            to: firstExitStop?.name || transfer.fromStopId,
+            depart: first.originDepartureTime,
+            arrive: first.firstArrivalTime,
+            details: `trip ${first.tripId}`
+        },
+        {
+            step: 2,
+            type: "WALK",
+            route: "",
+            headsign: "",
+            from: firstExitStop?.name || transfer.fromStopId,
+            to: secondBoardingStop?.name || transfer.toStopId,
+            depart: "",
+            arrive: "",
+            details:
+                `${Math.ceil(transfer.walkingSeconds / 60)} min, ` +
+                `${Math.round(transfer.walkingMetres)} m (Google verified)`
+        },
+        {
+            step: 3,
+            type: "BUS",
+            route: second.routeId,
+            headsign: second.headsign || "",
+            from: secondBoardingStop?.name || transfer.toStopId,
+            to: destinationStop?.name || second.destinationStopId,
+            depart: second.secondDepartureTime,
+            arrive: second.destinationArrivalTime,
+            details: `trip ${second.tripId}`
+        }
+    ];
+
+    if (connection.accessWalk) {
+        steps.unshift({
+            step: 0,
+            type: "WALK",
+            route: "",
+            headsign: "",
+            from: "Origin",
+            to: firstBoardingStop?.name || first.originBoardingStopId,
+            depart: "",
+            arrive: first.originDepartureTime,
+            details:
+                `${Math.ceil(connection.accessWalk.walkingSeconds / 60)} min, ` +
+                `${Math.round(connection.accessWalk.walkingMetres)} m ` +
+                "(Google verified)"
+        });
+    }
+
+    if (connection.finalWalk) {
+        steps.push({
+            step: 4,
+            type: "WALK",
+            route: "",
+            headsign: "",
+            from: destinationStop?.name || second.destinationStopId,
+            to: "Final destination",
+            depart: second.destinationArrivalTime,
+            arrive: connection.arrivalAtDestination,
+            details:
+                `${Math.ceil(connection.finalWalk.walkingSeconds / 60)} min, ` +
+                `${Math.round(connection.finalWalk.walkingMetres)} m ` +
+                "(Google verified)"
+        });
+    }
+
+    steps.forEach((step, index) => {
+        step.step = index + 1;
+    });
+
+    console.table(steps);
+
+    console.log("Best recovered transfer:", {
+        transferWaitMinutes:
+            Math.floor(connection.transferWaitSeconds / 60),
+        finalArrivalTime:
+            connection.arrivalAtDestination || connection.finalArrivalTime,
+        walkingVerifiedBy: transfer.source
+    });
+}
+
+
 /*
  * POST /api/route
  *
@@ -161,6 +333,8 @@ app.post("/api/route", async (req, res) => {
             let physicalStops;
 
             let kdDistance;
+
+            let isExactStop;
             
 
 
@@ -209,6 +383,8 @@ app.post("/api/route", async (req, res) => {
                  */
                 kdDistance = 0;
 
+                isExactStop = true;
+
 
             } else {
 
@@ -239,18 +415,17 @@ app.post("/api/route", async (req, res) => {
                  * Find the nearest physical ETS stop
                  * using the KD-tree.
                  */
-                const nearestResult =
-                    nearest(
+                const endpointSelection =
+                    selectEndpointStops({
                         kdTree,
-                        coordinates.lat,
-                        coordinates.lon
-                    );
+                        lat: coordinates.lat,
+                        lon: coordinates.lon,
+                        radiusMetres: 600,
+                        maximumStops: 20
+                    });
 
 
-                if (
-                    !nearestResult ||
-                    !nearestResult.stop
-                ) {
+                if (endpointSelection.stops.length === 0) {
 
                     throw new Error(
                         `Could not find nearest ETS stop for ${stop.name}`
@@ -266,13 +441,13 @@ app.post("/api/route", async (req, res) => {
                  * nearby candidate stops for walking-route
                  * comparison.
                  */
-                physicalStops = [
-                    nearestResult.stop
-                ];
+                physicalStops = endpointSelection.stops;
 
 
                 kdDistance =
-                    nearestResult.distance;
+                    endpointSelection.closestDistanceMetres;
+
+                isExactStop = false;
             }
 
 
@@ -310,7 +485,11 @@ app.post("/api/route", async (req, res) => {
                     routes,
 
                 physicalStops:
-                    physicalStops
+                    physicalStops,
+
+                coordinates,
+
+                isExactStop
             };
 
 
@@ -355,16 +534,8 @@ app.post("/api/route", async (req, res) => {
          * results[1] = destination
          */
 
-        let directRoutes = [];
-
-        let directTrips = [];
-
-        let transferOptions = [];
-
-        let transferTrips = [];
-    let bestDirectTrip = null;
-let bestTransferTrip = null;
-        let googleTransitRoutes = [];
+        let multiStopTrip = null;
+        let directionalTransferRecovery = null;
 
 
         /*
@@ -373,109 +544,123 @@ let bestTransferTrip = null;
          */
         if (results.length >= 2) {
 
-            const originStop =
-                results[0].routingStop;
+            const routeStops =
+                results.map(
+                    (result, index) => ({
+                        routingStop:
+                            result.routingStop,
 
-
-            const destinationStop =
-                results[1].routingStop;
-
-
-            /*
-             * findDirectRoutes only needs the routes
-             * property, so it can already work with our
-             * new routingStop object.
-             */
-            directRoutes =
-                findDirectRoutes(
-                    originStop,
-                    destinationStop
+                        /*
+                         * Intermediate-stop departure
+                         * preferences are optional. The
+                         * frontend can send either name
+                         * while its UI is being updated.
+                         */
+                        preferredDepartureTime:
+                            stops[index]
+                                .preferredDepartureTime ||
+                            stops[index]
+                                .departureTime ||
+                            null
+                    })
                 );
 
-            /*
- * Find actual scheduled trips on the
- * shared direct routes.
- *
- * findDirectTrips now supports multiple
- * physical stop IDs for each location.
- */
-directTrips =
-    findDirectTrips(
-        directRoutes,
-        originStop,
-        destinationStop,
-        tripsByRoute,
-        stopTimesByTrip,
-        serviceByDate,
-        travelDate,
-        departureTime
-    );
+            multiStopTrip =
+                await planMultiStopTrip({
+                    routeStops,
+                    travelDate,
+                    initialDepartureTime:
+                        departureTime,
+                    kdTree,
+                    stopById,
+                    tripsByRoute,
+                    stopTimesByTrip,
+                    serviceByDate,
+                    verifyWalking:
+                        Boolean(
+                            process.env
+                                .GOOGLE_ROUTES_API_KEY
+                        ),
+                    googleRoutesApiKey:
+                        process.env
+                            .GOOGLE_ROUTES_API_KEY
+                });
 
-bestDirectTrip =
-    selectBestDirectTrip(directTrips);
-transferOptions =
-    findTransferOptions(
-        originStop,
-        destinationStop,
-        stopMap
-    );
+            /* Direct journeys can remain local. Any transfer journey is
+             * selected by the new destination-first pipeline. */
+            const oldTransferIndex = multiStopTrip.legs.findIndex(
+                leg => leg.itinerary?.type === "transfer"
+            );
+            const recoveryIndex = multiStopTrip.failedLeg
+                ? multiStopTrip.failedLeg - 1
+                : oldTransferIndex;
 
-transferTrips =
-    findTransferTrips(
-        transferOptions,
-        originStop,
-        destinationStop,
-        tripsByRoute,
-        stopTimesByTrip,
-        serviceByDate,
-        travelDate,
-        departureTime,
-        5
-    );
+            if (
+                recoveryIndex >= 0 &&
+                process.env.ORS_API_KEY &&
+                process.env.ORS_MATRIX_URL &&
+                process.env.GOOGLE_ROUTES_API_KEY
+            ) {
+                const failedOrigin = routeStops[recoveryIndex];
+                const failedDestination = routeStops[recoveryIndex + 1];
+                const searchedFrom =
+                    multiStopTrip.failedRoutingDetails?.departureTime ||
+                    multiStopTrip.legs[recoveryIndex]?.searchedFrom ||
+                    departureTime;
+                const destinationDistanceByStopId = new Map(
+                    failedDestination.routingStop.physicalStops.map(stop => [
+                        String(stop.stopId),
+                        stop.endpointDistanceMetres ?? 0
+                    ])
+                );
 
-bestTransferTrip =
-    transferTrips[0] || null;
+                directionalTransferRecovery =
+                    await findDirectionalTransferConnections({
+                        originStopIds: failedOrigin.routingStop.stopIds,
+                        destinationStopIds:
+                            failedDestination.routingStop.stopIds,
+                        travelDate,
+                        departureTimeSeconds: gtfsTimeToSeconds(searchedFrom),
+                        stopById,
+                        tripsByRoute,
+                        stopTimesByTrip,
+                        serviceByDate,
+                        orsApiKey: process.env.ORS_API_KEY,
+                        orsMatrixUrl: process.env.ORS_MATRIX_URL,
+                        googleRoutesApiKey:
+                            process.env.GOOGLE_ROUTES_API_KEY,
+                        originLocation:
+                            failedOrigin.routingStop.isExactStop === false
+                                ? failedOrigin.routingStop.coordinates
+                                : null,
+                        destinationLocation:
+                            failedDestination.routingStop.isExactStop === false
+                                ? failedDestination.routingStop.coordinates
+                                : null,
+                        destinationDistanceByStopId
+                    });
+            }
 
-console.log("Routing summary:", {
-    origin: originStop.name,
-    destination: destinationStop.name,
-    date: travelDate,
-    departureTime,
-    directTrips: directTrips.length,
-    transferOptions: transferOptions.length,
-    validTransferTrips: transferTrips.length,
-    bestDirectRoute:
-        bestDirectTrip?.routeId || null,
-    bestTransferRoutes:
-        bestTransferTrip
-            ? [
-                bestTransferTrip.firstLeg.routeId,
-                bestTransferTrip.secondLeg.routeId
-            ]
-            : null
-});
+            console.log("Route search:", {
+                success: multiStopTrip.success,
+                legsCompleted: multiStopTrip.legs.length,
+                failedLeg: multiStopTrip.failedLeg || null,
+                recoveryFound:
+                    directionalTransferRecovery?.success || false,
+                finalArrivalTime:
+                    directionalTransferRecovery?.bestConnection
+                        ?.finalArrivalTime ||
+                    multiStopTrip.finalArrivalTime ||
+                    null
+            });
 
-console.log(
-    `All transfer options (${transferOptions.length}):`
-);
+            if (!directionalTransferRecovery?.success) {
+                printRecommendedJourney(multiStopTrip);
+            }
 
-console.table(
-    transferOptions.map(
-        (option, index) => ({
-            number:
-                index + 1,
-
-            transferStop:
-                option.transferStop.name,
-
-            firstRoute:
-                option.firstRoute.routeId,
-
-            secondRoute:
-                option.secondRoute.routeId
-        })
-    )
-);
+            printDirectionalTransferRecovery(
+                directionalTransferRecovery
+            );
         }
 
 
@@ -493,13 +678,31 @@ console.table(
             stops:
                 results,
 
+            multiStopTrip:
+                multiStopTrip,
+
+            directionalTransferRecovery,
+
+            /*
+             * Keep the first leg under the previous
+             * response fields until the frontend is
+             * migrated to multiStopTrip.legs.
+             */
+            leg:
+                multiStopTrip?.legs[0]
+                    ?.routingDetails || null,
+
             directRoutes:
-                directRoutes,
+                multiStopTrip?.legs[0]
+                    ?.routingDetails.directRoutes || [],
 
             directTrips:
-                directTrips,
+                multiStopTrip?.legs[0]
+                    ?.routingDetails.directTrips || [],
+
             transferOptions:
-                transferOptions
+                multiStopTrip?.legs[0]
+                    ?.routingDetails.transferOptions || []
         });
 
 
@@ -522,12 +725,26 @@ console.table(
 });
 
 
-app.listen(
-    PORT,
-    () => { //starts web server at port and listens for traffic
+function startServer(port = PORT) {
+    return app.listen(
+        port,
+        () => {
+            console.log(
+                `Server running on http://localhost:${port}`
+            );
+        }
+    );
+}
 
-        console.log(
-            `Server running on http://localhost:${PORT}`
-        );
-    }
-);
+
+/* Start normally from `node server.js`, but allow HTTP integration tests to
+ * import the Express app and choose an unused temporary port. */
+if (require.main === module) {
+    startServer();
+}
+
+
+module.exports = {
+    app,
+    startServer
+};

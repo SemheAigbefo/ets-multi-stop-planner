@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test": "node test/graphInfrastructure.test.js && node test/walkingExpansion.test.js && node test/transitExpansion.test.js && node test/graphJourney.test.js && node test/walkingVerification.test.js && node test/backendIntegration.test.js && node test/endpointAndTransferCandidates.test.js && node test/directionalTransferSets.test.js && node test/orsTransferFiltering.test.js && node test/googleTransferVerification.test.js"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

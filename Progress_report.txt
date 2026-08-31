@@ -82,3 +82,43 @@ Fifth commit:       feat: add schedule-aware direct transit routing
 - fix inefficient stop-time sorting during index construction
 
 
+6th commit: Complete the first origin to destination routing phase
+Added selectBestDirectTrip():
+- chooses the earliest-arriving direct trip;
+- calculates direct travel time in minutes.
+
+Added structural transfer discovery:
+- finds transfer stops shared between an origin route and destination route;
+- supports logical transit locations containing multiple physical stop IDs;
+- produces first-route/transfer-stop/second-route combinations.
+
+Added scheduled one-transfer validation:
+- validates both legs against GTFS service dates and stop sequences;
+- ensures the second bus leaves after the first arrives;
+- applies a five-minute minimum transfer buffer;
+- calculates transfer wait and total travel time;
+- ranks valid transfers by final arrival time.
+
+Updated the frontend:
+- fixed the duplicate body property;
+- continues sending the GTFS date;
+- creates and sends an RFC 3339 departureDateTime for Google.
+
+Added a Google Routes API client:
+- supports transit routing;
+- requests buses and light rail;
+- prefers fewer transfers;
+- requests transit-step details.
+- Important: it is currently imported but not called by server.js, so current routing output still comes from your local GTFS algorithm.
+
+Cleaned debugging output:
+- removed repeated trip-filter counters;
+- added one compact routing summary;
+- added a readable table showing every transfer option.
+
+Planned multi-stop routing:
+- each destination becomes the next leg’s origin;
+- the previous leg’s arrival time must feed into the next leg’s departure;
+- this has not been implemented yet.
+
+

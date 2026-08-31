@@ -36,12 +36,6 @@ async function getCoordinates(stopName, stopMap) {
         matchingStops.length > 0
     ) {
 
-        console.log(
-            "Found in ETS:",
-            stopName
-        );
-
-
         /*
          * Multiple GTFS stop records may represent
          * different bays/platforms at the same
@@ -68,12 +62,6 @@ async function getCoordinates(stopName, stopMap) {
      * If the location isn't an ETS stop,
      * try Google Geocoding.
      */
-    console.log(
-        "Not an ETS stop. Trying Google:",
-        stopName
-    );
-
-
     const params =
         new URLSearchParams({
 
@@ -91,20 +79,8 @@ async function getCoordinates(stopName, stopMap) {
         );
 
 
-    console.log(
-        "HTTP status:",
-        response.status
-    );
-
-
     const data =
         await response.json();
-
-
-    console.log(
-        "Google response:",
-        data
-    );
 
 
     /*

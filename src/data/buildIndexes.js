@@ -14,6 +14,9 @@ function buildIndexes(stops) {
 
     const stopMap = new Map();
 
+    /* Physical GTFS stop ID -> stop record for graph-search states. */
+    const stopById = new Map();
+
     let kdTree = null;
 
 
@@ -86,6 +89,14 @@ function buildIndexes(stops) {
 
             lon,
 
+            routes
+        });
+
+        stopById.set(String(stopId), {
+            stopId,
+            name,
+            lat,
+            lon,
             routes
         });
 
@@ -178,28 +189,12 @@ function buildIndexes(stops) {
      * of stops that a particular trip visits.
      */
 
-   /* console.log(
-        "Starting stop_times load..."
-    );*/
-
-
     const stopTimes =
         readGtfsFile("stop_times.txt");
 
 
-    /*console.log(
-        "Finished loading stop_times:",
-        stopTimes.length
-    );*/
-
-
     const stopTimesByTrip =
         new Map();
-
-
-    /*console.log(
-        "Starting stopTimesByTrip index..."
-    );*/
 
 
     for (const stopTime of stopTimes) {
@@ -255,9 +250,6 @@ function buildIndexes(stops) {
      * the vehicle actually visits them.
      */
 
-    //console.log("Starting sort...");
-
-
     for (
         const tripStopTimes
         of stopTimesByTrip.values()
@@ -269,17 +261,6 @@ function buildIndexes(stops) {
                 b.stopSequence
         );
     }
-
-
-    console.log(
-        "Finished sort."
-    );
-
-
-    console.log(
-        "Finished stopTimesByTrip:",
-        stopTimesByTrip.size
-    );
 
 
     // --------------------------------
@@ -354,51 +335,14 @@ function buildIndexes(stops) {
 
 
     // --------------------------------
-    // OPTIONAL TESTING
-    // --------------------------------
-
-    /*
-    console.log(
-        "Trips for 004:",
-        tripsByRoute.get("004")
-    );
-
-    console.log(
-        "Number of trips for 004:",
-        tripsByRoute.get("004")?.length
-    );
-
-    console.log(
-        "Stop times for trip 32818044:",
-        stopTimesByTrip.get("32818044")
-    );
-
-    console.log(
-        "Services on June 8:",
-        serviceByDate.get("20260608")
-    );
-
-    console.log(
-        "Number of services on June 8:",
-        serviceByDate.get("20260608")?.size
-    );
-
-    console.log(
-        "WEM stop records:",
-        stopMap.get(
-            "West Edmonton Mall Transit Centre"
-        )
-    );
-    */
-
-
-    // --------------------------------
     // RETURN ALL INDEXES
     // --------------------------------
 
     return {
 
         stopMap,
+
+        stopById,
 
         kdTree,
 
