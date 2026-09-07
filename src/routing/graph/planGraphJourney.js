@@ -301,6 +301,7 @@ function planGraphJourney({
         const transitResult = expandTransitStates({
             state,
             travelDate,
+            requestedDepartureTimeSeconds: startTime,
             stopById,
             tripsByRoute,
             stopTimesByTrip,

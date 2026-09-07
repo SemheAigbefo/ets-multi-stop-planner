@@ -1,0 +1,8 @@
+{
+  "defaultBufferSeconds": 300,
+  "samePhysicalStopBufferSeconds": 60,
+  "centres": {
+    "century-park-transit-centre": 180
+  },
+  "bayPairOverrides": {}
+}

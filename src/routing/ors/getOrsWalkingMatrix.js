@@ -6,8 +6,10 @@ function uniqueStops(candidates, idField, coordinateField) {
 
         if (!stopsById.has(stopId)) {
             stopsById.set(stopId, {
-                stopId,
-                ...candidate[coordinateField]
+                ...candidate[coordinateField],
+                /* Preserve the matrix identity even when a coordinate object
+                 * is a full GTFS stop containing its own stopId. */
+                stopId
             });
         }
     }

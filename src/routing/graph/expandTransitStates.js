@@ -2,6 +2,9 @@ const createSearchState = require("./createSearchState");
 const {
     gtfsTimeToSeconds
 } = require("./gtfsTime");
+const {
+    isTripEligibleForSearch
+} = require("../tripEligibility");
 
 
 /* Returns every position where a physical stop occurs in a trip pattern. */
@@ -38,7 +41,9 @@ function expandTransitStates({
     minimumTransferSeconds = 300,
     maximumWaitSeconds = 7200,
     maximumRideSeconds = 14400,
-    maximumBoardings = 4
+    maximumBoardings = 4,
+    requestedDepartureTimeSeconds = null,
+    allowedRouteTypes = null
 }) {
     if (!state || !frontier || !bestLabels) {
         throw new TypeError(
@@ -104,6 +109,18 @@ function expandTransitStates({
 
             if (!activeServices.has(trip.serviceId)) {
                 rejected.inactiveService++;
+                continue;
+            }
+
+            if (allowedRouteTypes &&
+                !allowedRouteTypes.includes(String(trip.routeType))) continue;
+
+            if (
+                !isTripEligibleForSearch(
+                    trip,
+                    requestedDepartureTimeSeconds ?? state.arrivalTimeSeconds
+                )
+            ) {
                 continue;
             }
 
@@ -206,6 +223,9 @@ function expandTransitStates({
                             routeId,
                             tripId: String(trip.tripId),
                             headsign: trip.headsign || null,
+                            routeType: trip.routeType ?? null,
+                            transitMode:
+                                String(trip.routeType) === "0" ? "train" : "bus",
                             fromStopId: String(state.stopId),
                             toStopId: String(downstream.stopId),
                             departureTime: boardingStopTime.departureTime,

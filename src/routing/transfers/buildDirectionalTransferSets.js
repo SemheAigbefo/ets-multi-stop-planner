@@ -1,6 +1,9 @@
 const {
     gtfsTimeToSeconds
 } = require("../graph/gtfsTime");
+const {
+    isTripEligibleForSearch
+} = require("../tripEligibility");
 
 
 function addContext(contextsByStopId, stopId, context) {
@@ -48,7 +51,8 @@ function buildDirectionalTransferSets({
     tripsByRoute,
     stopTimesByTrip,
     serviceByDate,
-    maximumInitialWaitSeconds = 7200
+    maximumInitialWaitSeconds = 7200,
+    allowedRouteTypes = null
 }) {
     const activeServices = serviceByDate.get(travelDate);
     const firstContextsByStopId = new Map();
@@ -101,6 +105,11 @@ function buildDirectionalTransferSets({
                 statistics.firstTripsChecked++;
 
                 if (!activeServices.has(trip.serviceId)) continue;
+                if (allowedRouteTypes &&
+                    !allowedRouteTypes.includes(String(trip.routeType))) continue;
+                if (!isTripEligibleForSearch(trip, numericDepartureTime)) {
+                    continue;
+                }
 
                 const stopTimes = stopTimesByTrip.get(trip.tripId) || [];
 
@@ -154,6 +163,7 @@ function buildDirectionalTransferSets({
                             serviceId: String(trip.serviceId),
                             directionId: trip.directionId ?? null,
                             headsign: trip.headsign || null,
+                            routeType: trip.routeType ?? null,
                             originBoardingStopId: originStopIdValue,
                             originBoardingSequence:
                                 boarding.stopSequence,
@@ -201,6 +211,11 @@ function buildDirectionalTransferSets({
             statistics.secondTripsChecked++;
 
             if (!activeServices.has(trip.serviceId)) continue;
+            if (allowedRouteTypes &&
+                !allowedRouteTypes.includes(String(trip.routeType))) continue;
+            if (!isTripEligibleForSearch(trip, numericDepartureTime)) {
+                continue;
+            }
 
             const stopTimes = stopTimesByTrip.get(trip.tripId) || [];
 
@@ -240,6 +255,7 @@ function buildDirectionalTransferSets({
                         serviceId: String(trip.serviceId),
                         directionId: trip.directionId ?? null,
                         headsign: trip.headsign || null,
+                        routeType: trip.routeType ?? null,
                         secondBoardingStopId: boardingStopId,
                         secondBoardingSequence:
                             boarding.stopSequence,

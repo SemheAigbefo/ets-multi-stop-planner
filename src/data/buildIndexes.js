@@ -127,6 +127,12 @@ function buildIndexes(stops) {
 
     const trips =
         readGtfsFile("trips.txt");
+    const routeTypeById = new Map(
+        readGtfsFile("routes.txt").map(route => [
+            String(route.route_id),
+            String(route.route_type)
+        ])
+    );
 
 
     const tripsByRoute =
@@ -171,7 +177,9 @@ function buildIndexes(stops) {
 
                 headsign: trip_headsign,
 
-                directionId: direction_id
+                directionId: direction_id,
+
+                routeType: routeTypeById.get(String(route_id)) ?? null
             });
     }
 

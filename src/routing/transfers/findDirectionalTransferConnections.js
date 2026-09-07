@@ -6,6 +6,9 @@ const buildScheduledTransferConnections =
     require("./buildScheduledTransferConnections");
 const verifyTransferConnections =
     require("../google/verifyTransferConnections");
+const {
+    distanceMetres
+} = require("../../spatial/nearestStop");
 
 
 /* Runs the complete KD-tree -> ORS -> schedule -> Google pipeline. */
@@ -66,16 +69,44 @@ async function findDirectionalTransferConnections({
         const secondDistance = destinationDistanceByStopId.get(
             String(second.secondTrip.destinationStopId)
         ) ?? Infinity;
+        const firstProgressDistance = distanceFromTransferToDestination(
+            first,
+            destinationLocation,
+            stopById
+        );
+        const secondProgressDistance = distanceFromTransferToDestination(
+            second,
+            destinationLocation,
+            stopById
+        );
 
+        /* First preserve the closest destination-area stop. Then prefer a
+         * valid transfer location geographically closer to the real
+         * destination. This prevents an earlier bus travelling away from the
+         * destination (for example 518 toward Century Park) from winning. */
         return firstDistance - secondDistance ||
-            first.transfer.walkingSeconds - second.transfer.walkingSeconds;
+            firstProgressDistance - secondProgressDistance ||
+            first.firstTrip.firstArrivalTimeSeconds -
+                second.firstTrip.firstArrivalTimeSeconds ||
+            first.transfer.walkingSeconds - second.transfer.walkingSeconds ||
+            first.finalArrivalTimeSeconds - second.finalArrivalTimeSeconds;
     });
+
+    const finalistConnections =
+        verifyTransferConnections.groupDistinctTransferPairs(
+            scheduled,
+            maximumConnectionsToVerify
+        ).map(group => ({
+            ...group.connections[0],
+            scheduleOptionsForStopPair: group.connections.length
+        }));
 
     if (scheduled.length === 0) {
         return {
             ...emptyResult(directional.statistics, "no_catchable_connection"),
             counts: makeCounts(directional.candidates.length,
                 ors.candidates.length, 0, 0, 0),
+            finalistConnections: [],
             orsRejected: ors.rejected
         };
     }
@@ -98,6 +129,7 @@ async function findDirectionalTransferConnections({
         success: verified.length > 0,
         reason: verified.length ? null : "google_rejected_finalists",
         bestConnection: verified[0] || null,
+        finalistConnections,
         verifiedConnections: verified,
         counts: makeCounts(
             directional.candidates.length,
@@ -109,6 +141,30 @@ async function findDirectionalTransferConnections({
         statistics: directional.statistics,
         orsRejected: ors.rejected
     };
+}
+
+
+function distanceFromTransferToDestination(
+    connection,
+    destinationLocation,
+    stopById
+) {
+    const transferStop = stopById.get(
+        String(connection.secondTrip.secondBoardingStopId)
+    );
+    const destinationStop = stopById.get(
+        String(connection.secondTrip.destinationStopId)
+    );
+    const destination = destinationLocation || destinationStop;
+
+    if (!transferStop || !destination) return Infinity;
+
+    return distanceMetres(
+        Number(transferStop.lat),
+        Number(transferStop.lon),
+        Number(destination.lat),
+        Number(destination.lon)
+    );
 }
 
 
@@ -128,6 +184,7 @@ function emptyResult(statistics, reason) {
         success: false,
         reason,
         bestConnection: null,
+        finalistConnections: [],
         verifiedConnections: [],
         counts: makeCounts(0, 0, 0, 0, 0),
         statistics

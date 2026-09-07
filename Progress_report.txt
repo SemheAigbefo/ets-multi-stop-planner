@@ -121,4 +121,8 @@ Planned multi-stop routing:
 - the previous leg’s arrival time must feed into the next leg’s departure;
 - this has not been implemented yet.
 
-
+-should return multiple routes and bus options for the same route, there are differences in trip time and departure and arrival time
+-refine caching to minimize api calls
+-get more route results for analysis
+-refine transit wide route alg,explore more ds uf possible, prioritize O1 look up,each transit ceter shpuld have a list of buses that go directly to them
+-ranked by time and from where and what stops serve said buses

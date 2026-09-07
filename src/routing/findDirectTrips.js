@@ -24,6 +24,10 @@ function timeToSeconds(time) {
     );
 }
 
+const {
+    isTripEligibleForSearch
+} = require("./tripEligibility");
+
 
 /*
  * Finds actual scheduled trips that travel
@@ -81,6 +85,10 @@ function findDirectTrips(
                     trip.serviceId
                 )
             ) {
+                continue;
+            }
+
+            if (!isTripEligibleForSearch(trip, requestedDeparture)) {
                 continue;
             }
 

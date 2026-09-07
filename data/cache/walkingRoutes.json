@@ -1,0 +1,365 @@
+{
+  "version": 1,
+  "routes": {
+    "coord:53.521565:-113.680550>stop:8057": {
+      "origin": "coord:53.521565:-113.680550",
+      "destination": "stop:8057",
+      "verifiedAt": "2026-08-31T20:04:26.038Z",
+      "route": {
+        "distanceMetres": 374,
+        "durationSeconds": 294,
+        "encodedPolyline": "}kteI`fztTFNNJFv@HLFl@[JGl@`@Z`Aa@MgBAm@cAmKQuA",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:5212>stop:5218": {
+      "origin": "stop:5212",
+      "destination": "stop:5218",
+      "verifiedAt": "2026-08-31T20:04:26.227Z",
+      "route": {
+        "distanceMetres": 64,
+        "durationSeconds": 52,
+        "encodedPolyline": "}aueIntntT@pBe@A?R",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:4214>stop:4215": {
+      "origin": "stop:4214",
+      "destination": "stop:4215",
+      "verifiedAt": "2026-08-31T20:04:26.330Z",
+      "route": {
+        "distanceMetres": 15,
+        "durationSeconds": 18,
+        "encodedPolyline": "}|geIf_zsTUB?H",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:99071>coord:53.403617:-113.452613": {
+      "origin": "stop:99071",
+      "destination": "coord:53.403617:-113.452613",
+      "verifiedAt": "2026-08-31T20:04:26.429Z",
+      "route": {
+        "distanceMetres": 97,
+        "durationSeconds": 80,
+        "encodedPolyline": "ih}dIj}msT}BmE",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "coord:53.615098:-113.520836>stop:6005": {
+      "origin": "coord:53.615098:-113.520836",
+      "destination": "stop:6005",
+      "verifiedAt": "2026-08-31T20:08:39.787Z",
+      "route": {
+        "distanceMetres": 383,
+        "durationSeconds": 329,
+        "encodedPolyline": "_tffIr|zsTo@_AYi@k@aBO{@Gq@GeBGsFE?Co@I]uATKgAMM]D",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:7001>stop:7002": {
+      "origin": "stop:7001",
+      "destination": "stop:7002",
+      "verifiedAt": "2026-08-31T20:08:39.880Z",
+      "route": {
+        "distanceMetres": 16,
+        "durationSeconds": 12,
+        "encodedPolyline": "yvcfIbeusTDq@",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:7902>stop:7905": {
+      "origin": "stop:7902",
+      "destination": "stop:7905",
+      "verifiedAt": "2026-08-31T20:08:39.981Z",
+      "route": {
+        "distanceMetres": 104,
+        "durationSeconds": 85,
+        "encodedPolyline": "eedfIjvesTm@kASGI@KHOZh@~@",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:3902>stop:3903": {
+      "origin": "stop:3902",
+      "destination": "stop:3903",
+      "verifiedAt": "2026-08-31T20:08:40.080Z",
+      "route": {
+        "distanceMetres": 25,
+        "durationSeconds": 21,
+        "encodedPolyline": "a|geIp~hsTVdA",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:9360>coord:53.406330:-113.468431": {
+      "origin": "stop:9360",
+      "destination": "coord:53.406330:-113.468431",
+      "verifiedAt": "2026-08-31T20:08:40.182Z",
+      "route": {
+        "distanceMetres": 135,
+        "durationSeconds": 110,
+        "encodedPolyline": "ed~dIp_qsTrFA",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:7001>stop:7003": {
+      "origin": "stop:7001",
+      "destination": "stop:7003",
+      "verifiedAt": "2026-08-31T20:17:33.508Z",
+      "route": {
+        "distanceMetres": 88,
+        "durationSeconds": 69,
+        "encodedPolyline": "yvcfIbeusTDi@?aF",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:1207>stop:1210": {
+      "origin": "stop:1207",
+      "destination": "stop:1210",
+      "verifiedAt": "2026-08-31T20:17:33.593Z",
+      "route": {
+        "distanceMetres": 64,
+        "durationSeconds": 50,
+        "encodedPolyline": "ga~eIbeosTQaE",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "coord:53.521539:-113.680515>stop:8057": {
+      "origin": "coord:53.521539:-113.680515",
+      "destination": "stop:8057",
+      "verifiedAt": "2026-09-07T09:17:38.327Z",
+      "route": {
+        "distanceMetres": 375,
+        "durationSeconds": 295,
+        "encodedPolyline": "}kteI|eztTFRNJFv@HLFl@[JGl@`@Z`Aa@MgBAm@cAmKQuA",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:3913>stop:3903": {
+      "origin": "stop:3913",
+      "destination": "stop:3903",
+      "verifiedAt": "2026-09-07T09:17:38.405Z",
+      "route": {
+        "distanceMetres": 77,
+        "durationSeconds": 64,
+        "encodedPolyline": "_zgeIleisTCeAKoAEQY@DN",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:99198>coord:53.403791:-113.451913": {
+      "origin": "stop:99198",
+      "destination": "coord:53.403791:-113.451913",
+      "verifiedAt": "2026-09-07T09:17:38.457Z",
+      "route": {
+        "distanceMetres": 78,
+        "durationSeconds": 63,
+        "encodedPolyline": "wq}dIpomsTLWdBbD",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "coord:53.403791:-113.451913>stop:99198": {
+      "origin": "coord:53.403791:-113.451913",
+      "destination": "stop:99198",
+      "verifiedAt": "2026-09-07T09:22:07.665Z",
+      "route": {
+        "distanceMetres": 78,
+        "durationSeconds": 66,
+        "encodedPolyline": "cn}dI|smsTeBcDMV",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:4215>stop:4203": {
+      "origin": "stop:4215",
+      "destination": "stop:4203",
+      "verifiedAt": "2026-09-07T09:22:07.717Z",
+      "route": {
+        "distanceMetres": 39,
+        "durationSeconds": 42,
+        "encodedPolyline": "s}geIt_zsT@Kr@E?O",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:5218>stop:5212": {
+      "origin": "stop:5218",
+      "destination": "stop:5212",
+      "verifiedAt": "2026-09-07T09:22:07.801Z",
+      "route": {
+        "distanceMetres": 64,
+        "durationSeconds": 50,
+        "encodedPolyline": "acueIrxntT?Sd@@AqB",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:8022>coord:53.521539:-113.680515": {
+      "origin": "stop:8022",
+      "destination": "coord:53.521539:-113.680515",
+      "verifiedAt": "2026-09-07T09:22:07.924Z",
+      "route": {
+        "distanceMetres": 232,
+        "durationSeconds": 202,
+        "encodedPolyline": "whteIbeztTJlAMD?d@LfBaA`@a@[Fm@ZKGm@IMGw@OKGS",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:4216>stop:4203": {
+      "origin": "stop:4216",
+      "destination": "stop:4203",
+      "verifiedAt": "2026-09-07T10:04:57.535Z",
+      "route": {
+        "distanceMetres": 63,
+        "durationSeconds": 67,
+        "encodedPolyline": "s}geI~azsT?sAt@G?O",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:5218>stop:5216": {
+      "origin": "stop:5218",
+      "destination": "stop:5216",
+      "verifiedAt": "2026-09-07T10:04:57.644Z",
+      "route": {
+        "distanceMetres": 89,
+        "durationSeconds": 70,
+        "encodedPolyline": "acueIrxntTAmG",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:5206>stop:5208": {
+      "origin": "stop:5206",
+      "destination": "stop:5208",
+      "verifiedAt": "2026-09-07T10:55:15.375Z",
+      "route": {
+        "distanceMetres": 120,
+        "durationSeconds": 98,
+        "encodedPolyline": "ma|eIzxatTj@@?hA_C?",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:1208>stop:1210": {
+      "origin": "stop:1208",
+      "destination": "stop:1210",
+      "verifiedAt": "2026-09-07T12:07:49.908Z",
+      "route": {
+        "distanceMetres": 44,
+        "durationSeconds": 34,
+        "encodedPolyline": "ma~eIfcosTKeC",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:3902>stop:3905": {
+      "origin": "stop:3902",
+      "destination": "stop:3905",
+      "verifiedAt": "2026-09-07T12:07:49.986Z",
+      "route": {
+        "distanceMetres": 77,
+        "durationSeconds": 63,
+        "encodedPolyline": "a|geIp~hsTVdAFr@FbB",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:9236>coord:53.430576:-113.428390": {
+      "origin": "stop:9236",
+      "destination": "coord:53.430576:-113.428390",
+      "verifiedAt": "2026-09-07T12:07:50.089Z",
+      "route": {
+        "distanceMetres": 84,
+        "durationSeconds": 64,
+        "encodedPolyline": "iqbeIrwhsTg@pCQvA",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:4214>stop:4209": {
+      "origin": "stop:4214",
+      "destination": "stop:4209",
+      "verifiedAt": "2026-09-07T12:11:08.845Z",
+      "route": {
+        "distanceMetres": 358,
+        "durationSeconds": 303,
+        "encodedPolyline": "}|geIf_zsT^C?}@aD@?dAYp@?Nn@@?B`HB",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:9621>coord:53.430576:-113.428390": {
+      "origin": "stop:9621",
+      "destination": "coord:53.430576:-113.428390",
+      "verifiedAt": "2026-09-07T12:11:08.947Z",
+      "route": {
+        "distanceMetres": 67,
+        "durationSeconds": 52,
+        "encodedPolyline": "uqbeI`yhsTe@rCGf@",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "coord:53.403617:-113.452613>stop:99071": {
+      "origin": "coord:53.403617:-113.452613",
+      "destination": "stop:99071",
+      "verifiedAt": "2026-09-07T12:11:21.030Z",
+      "route": {
+        "distanceMetres": 97,
+        "durationSeconds": 79,
+        "encodedPolyline": "gl}dI|vmsT|BlE",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:3903>stop:3902": {
+      "origin": "stop:3903",
+      "destination": "stop:3902",
+      "verifiedAt": "2026-09-07T12:11:21.133Z",
+      "route": {
+        "distanceMetres": 238,
+        "durationSeconds": 195,
+        "encodedPolyline": "i{geI~`isTFj@FbAVAIsAIs@Mo@aAyCKVn@|B",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:2304>stop:2306": {
+      "origin": "stop:2304",
+      "destination": "stop:2306",
+      "verifiedAt": "2026-09-07T12:11:21.233Z",
+      "route": {
+        "distanceMetres": 38,
+        "durationSeconds": 30,
+        "encodedPolyline": "}vweIlzgsTCrB",
+        "verified": true,
+        "source": "google_routes"
+      }
+    },
+    "stop:2001>stop:2002": {
+      "origin": "stop:2001",
+      "destination": "stop:2002",
+      "verifiedAt": "2026-09-07T12:11:21.338Z",
+      "route": {
+        "distanceMetres": 34,
+        "durationSeconds": 28,
+        "encodedPolyline": "maueIza{sTDSNMEr@",
+        "verified": true,
+        "source": "google_routes"
+      }
+    }
+  }
+}

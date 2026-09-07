@@ -21,13 +21,14 @@ const getRoutesByStop =
 const planMultiStopTrip =
     require("./src/routing/planMultiStopTrip");
 
-const findDirectionalTransferConnections =
-    require("./src/routing/transfers/findDirectionalTransferConnections");
-
 const {
-    gtfsTimeToSeconds
-} = require("./src/routing/graph/gtfsTime");
-
+    identifyTransitCentres
+} = require("./src/routing/transitCentres/identifyTransitCentres");
+const buildTransitCentreGraph =
+    require("./src/routing/transitCentres/buildTransitCentreGraph");
+const {
+    createWalkingRouteCache
+} = require("./src/routing/cache/createWalkingRouteCache");
 
 const app = express(); //instance of Express application
 
@@ -69,6 +70,19 @@ const {
     stopTimesByTrip,
     serviceByDate
 } = buildIndexes(stopsData);
+
+/* This smaller graph is static for the loaded GTFS feed, so build it once. */
+const {
+    centresById,
+    centreByStopId
+} = identifyTransitCentres(stopById);
+const transitCentreGraph = buildTransitCentreGraph({
+    centresById,
+    centreByStopId,
+    tripsByRoute,
+    stopTimesByTrip
+});
+const walkingRouteCache = createWalkingRouteCache();
 
 
 /*
@@ -131,6 +145,8 @@ function printRecommendedJourney(multiStopTrip) {
             `Leave ${leg.actualDepartureTime}; arrive ${leg.arrivalTime}`
         );
 
+        printPhase1Finalists(leg);
+
         const actions = leg.itinerary?.itinerary || [];
 
         console.table(actions.map((action, index) => {
@@ -141,7 +157,7 @@ function printRecommendedJourney(multiStopTrip) {
                 return {
                     step: index + 1,
                     instruction:
-                        `Take bus ${action.routeId}` +
+                        `Take ${action.transitMode || "bus"} ${action.routeId}` +
                         (action.headsign
                             ? ` toward ${action.headsign}`
                             : ""),
@@ -158,14 +174,20 @@ function printRecommendedJourney(multiStopTrip) {
                 instruction: "Walk",
                 from:
                     fromStop?.name ||
+                    action.fromName ||
                     (action.fromLocation ? leg.origin : action.fromStopId),
                 to:
                     toStop?.name ||
+                    action.toName ||
                     (action.toLocation ? leg.destination : action.toStopId),
                 depart: "",
                 arrive: "",
                 duration:
-                    `${Math.ceil(action.durationSeconds / 60)} min` +
+                    (Number.isFinite(action.durationMinutes)
+                        ? `${action.durationMinutes} min`
+                        : Number.isFinite(action.durationSeconds)
+                            ? `${Math.ceil(action.durationSeconds / 60)} min`
+                            : "Walking time unavailable") +
                     (Number.isFinite(action.distanceMetres)
                         ? `, ${Math.round(action.distanceMetres)} m`
                         : "")
@@ -181,9 +203,141 @@ function printRecommendedJourney(multiStopTrip) {
 }
 
 
+function printPhase1Finalists(leg) {
+    const phase1 = leg.routingDetails?.hierarchical?.phase1;
+    const finalists = phase1?.finalistConnections || [];
+
+    if (finalists.length === 0) return;
+
+    const verifiedByPair = new Map(
+        (phase1.verifiedConnections || []).map(connection => [
+            transferPairKey(connection),
+            connection
+        ])
+    );
+    const selectedPair = phase1.bestConnection
+        ? transferPairKey(phase1.bestConnection)
+        : null;
+
+    console.log("\nPHASE 1 FINALISTS");
+    console.table(finalists.slice(0, 5).map((scheduled, index) => {
+        const pairKey = transferPairKey(scheduled);
+        const verified = verifiedByPair.get(pairKey);
+        const displayed = verified || scheduled;
+        const exitStop = stopById.get(
+            String(displayed.transfer.fromStopId)
+        );
+        const boardingStop = stopById.get(
+            String(displayed.transfer.toStopId)
+        );
+        const destinationStop = stopById.get(
+            String(displayed.secondTrip.destinationStopId)
+        );
+
+        return {
+            rank: index + 1,
+            selected: pairKey === selectedPair ? "YES" : "",
+            google: verified ? "verified" : "rejected",
+            firstBus:
+                `${displayed.firstTrip.routeId} ` +
+                `${displayed.firstTrip.headsign || ""}`.trim(),
+            firstDeparture:
+                displayed.firstTrip.originDepartureTime,
+            exitStop:
+                exitStop?.name || displayed.transfer.fromStopId,
+            transferWalk:
+                `${Math.ceil(displayed.transfer.walkingSeconds / 60)} min, ` +
+                `${Math.round(displayed.transfer.walkingMetres)} m`,
+            secondStop:
+                boardingStop?.name || displayed.transfer.toStopId,
+            secondBus:
+                `${displayed.secondTrip.routeId} ` +
+                `${displayed.secondTrip.headsign || ""}`.trim(),
+            secondDeparture:
+                displayed.secondTrip.secondDepartureTime,
+            destinationStop:
+                destinationStop?.name ||
+                displayed.secondTrip.destinationStopId,
+            finalArrival:
+                displayed.arrivalAtDestination ||
+                displayed.finalArrivalTime,
+            schedulesForPair:
+                scheduled.scheduleOptionsForStopPair
+        };
+    }));
+}
+
+
+function transferPairKey(connection) {
+    return [
+        connection.transfer.fromStopId,
+        connection.transfer.toStopId
+    ].map(String).join("|");
+}
+
+
 /* Prints only the useful output from the new transfer-recovery pipeline. */
 function printDirectionalTransferRecovery(recovery) {
     if (!recovery) return;
+
+    if (recovery.phase === "phase_2") {
+        if (!recovery.success || !recovery.verifiedJourney) {
+            console.log("Phase 2 result:", {
+                reason: recovery.reason,
+                details:
+                    recovery.phase2?.verifiedJourney?.details || null,
+                centres:
+                    recovery.phase2?.centrePath?.centres || []
+            });
+            return;
+        }
+
+        console.log("\nPHASE 2 TRANSIT-CENTRE JOURNEY");
+        console.log(
+            "Centres:",
+            recovery.phase2.centrePath.centres.join(" -> ")
+        );
+        console.table(
+            recovery.verifiedJourney.actions.map((action, index) => {
+                const fromStop = stopById.get(String(action.fromStopId));
+                const toStop = stopById.get(String(action.toStopId));
+
+                if (action.type === "transit") {
+                    return {
+                        step: index + 1,
+                        instruction:
+                            `Take bus ${action.routeId}` +
+                            (action.headsign
+                                ? ` toward ${action.headsign}`
+                                : ""),
+                        from: fromStop?.name || action.fromStopId,
+                        to: toStop?.name || action.toStopId,
+                        depart: action.departureTime,
+                        arrive: action.arrivalTime,
+                        details: `trip ${action.tripId}`
+                    };
+                }
+
+                return {
+                    step: index + 1,
+                    instruction: "Walk",
+                    from: fromStop?.name || action.fromStopId || "Origin",
+                    to: toStop?.name || action.toStopId || "Destination",
+                    depart: "",
+                    arrive: "",
+                    details:
+                        `${Math.ceil(action.durationSeconds / 60)} min, ` +
+                        `${Math.round(action.distanceMetres)} m`
+                };
+            })
+        );
+        console.log("Final arrival:", recovery.finalArrivalTime);
+        return;
+    }
+
+    if (recovery.phase === "phase_1") {
+        recovery = recovery.phase1;
+    }
 
     console.log("Transfer recovery candidates:", recovery.counts);
 
@@ -305,7 +459,8 @@ app.post("/api/route", async (req, res) => {
         stops,
         departureTime,
         travelDate,
-        departureDateTime
+        departureDateTime,
+        busesOnly = false
     } = req.body; //object destructuring; extract properties stops and departureTime from request
 
     try {
@@ -535,7 +690,6 @@ app.post("/api/route", async (req, res) => {
          */
 
         let multiStopTrip = null;
-        let directionalTransferRecovery = null;
 
 
         /*
@@ -544,26 +698,9 @@ app.post("/api/route", async (req, res) => {
          */
         if (results.length >= 2) {
 
-            const routeStops =
-                results.map(
-                    (result, index) => ({
-                        routingStop:
-                            result.routingStop,
-
-                        /*
-                         * Intermediate-stop departure
-                         * preferences are optional. The
-                         * frontend can send either name
-                         * while its UI is being updated.
-                         */
-                        preferredDepartureTime:
-                            stops[index]
-                                .preferredDepartureTime ||
-                            stops[index]
-                                .departureTime ||
-                            null
-                    })
-                );
+            const routeStops = results.map(result => ({
+                routingStop: result.routingStop
+            }));
 
             multiStopTrip =
                 await planMultiStopTrip({
@@ -583,84 +720,28 @@ app.post("/api/route", async (req, res) => {
                         ),
                     googleRoutesApiKey:
                         process.env
-                            .GOOGLE_ROUTES_API_KEY
-                });
-
-            /* Direct journeys can remain local. Any transfer journey is
-             * selected by the new destination-first pipeline. */
-            const oldTransferIndex = multiStopTrip.legs.findIndex(
-                leg => leg.itinerary?.type === "transfer"
-            );
-            const recoveryIndex = multiStopTrip.failedLeg
-                ? multiStopTrip.failedLeg - 1
-                : oldTransferIndex;
-
-            if (
-                recoveryIndex >= 0 &&
-                process.env.ORS_API_KEY &&
-                process.env.ORS_MATRIX_URL &&
-                process.env.GOOGLE_ROUTES_API_KEY
-            ) {
-                const failedOrigin = routeStops[recoveryIndex];
-                const failedDestination = routeStops[recoveryIndex + 1];
-                const searchedFrom =
-                    multiStopTrip.failedRoutingDetails?.departureTime ||
-                    multiStopTrip.legs[recoveryIndex]?.searchedFrom ||
-                    departureTime;
-                const destinationDistanceByStopId = new Map(
-                    failedDestination.routingStop.physicalStops.map(stop => [
-                        String(stop.stopId),
-                        stop.endpointDistanceMetres ?? 0
-                    ])
-                );
-
-                directionalTransferRecovery =
-                    await findDirectionalTransferConnections({
-                        originStopIds: failedOrigin.routingStop.stopIds,
-                        destinationStopIds:
-                            failedDestination.routingStop.stopIds,
-                        travelDate,
-                        departureTimeSeconds: gtfsTimeToSeconds(searchedFrom),
-                        stopById,
-                        tripsByRoute,
-                        stopTimesByTrip,
-                        serviceByDate,
+                            .GOOGLE_ROUTES_API_KEY,
+                    allowedRouteTypes:
+                        busesOnly ? ["3"] : null,
+                    hierarchicalOptions: {
+                        centreByStopId,
+                        transitCentreGraph,
+                        walkingRouteCache,
                         orsApiKey: process.env.ORS_API_KEY,
-                        orsMatrixUrl: process.env.ORS_MATRIX_URL,
-                        googleRoutesApiKey:
-                            process.env.GOOGLE_ROUTES_API_KEY,
-                        originLocation:
-                            failedOrigin.routingStop.isExactStop === false
-                                ? failedOrigin.routingStop.coordinates
-                                : null,
-                        destinationLocation:
-                            failedDestination.routingStop.isExactStop === false
-                                ? failedDestination.routingStop.coordinates
-                                : null,
-                        destinationDistanceByStopId
-                    });
-            }
+                        orsMatrixUrl: process.env.ORS_MATRIX_URL
+                    }
+                });
 
             console.log("Route search:", {
                 success: multiStopTrip.success,
                 legsCompleted: multiStopTrip.legs.length,
                 failedLeg: multiStopTrip.failedLeg || null,
-                recoveryFound:
-                    directionalTransferRecovery?.success || false,
                 finalArrivalTime:
-                    directionalTransferRecovery?.bestConnection
-                        ?.finalArrivalTime ||
                     multiStopTrip.finalArrivalTime ||
                     null
             });
 
-            if (!directionalTransferRecovery?.success) {
-                printRecommendedJourney(multiStopTrip);
-            }
-
-            printDirectionalTransferRecovery(
-                directionalTransferRecovery
-            );
+            printRecommendedJourney(multiStopTrip);
         }
 
 
@@ -681,7 +762,10 @@ app.post("/api/route", async (req, res) => {
             multiStopTrip:
                 multiStopTrip,
 
-            directionalTransferRecovery,
+            hierarchicalTransfer:
+                multiStopTrip?.legs.map(
+                    leg => leg.routingDetails.hierarchical || null
+                ) || [],
 
             /*
              * Keep the first leg under the previous

@@ -561,6 +561,10 @@
         ================================== -->
 
         <div id="extra-stops"></div>
+        <label style="display:flex;align-items:center;gap:8px;margin:14px 0;">
+            <input type="checkbox" id="buses-only">
+            Buses only (exclude LRT)
+        </label>
         <!-- =================================
              BUTTONS
         ================================== -->
@@ -932,7 +936,10 @@ const response =
                     gtfsTravelDate,
 
                 departureDateTime:
-                    departureDateTime
+                    departureDateTime,
+
+                busesOnly:
+                    document.getElementById("buses-only").checked
             })
         }
     );
