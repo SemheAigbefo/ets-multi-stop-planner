@@ -989,7 +989,7 @@ const preferredDepartureTimes = Array.from(stopCards).map(card =>
 /* Send data to backend */
 const response =
     await fetch(
-        "http://localhost:3000/api/route",
+        "/api/route",
         {
             method: "POST",
 
@@ -1243,7 +1243,7 @@ async function loadTransitShape(action) {
         const tripId = encodeURIComponent(action.tripId);
         const fromStopId = encodeURIComponent(action.fromStopId);
         const toStopId = encodeURIComponent(action.toStopId);
-        const response = await fetch(`http://localhost:3000/api/trips/${tripId}/shape?fromStopId=${fromStopId}&toStopId=${toStopId}`);
+        const response = await fetch(`/api/trips/${tripId}/shape?fromStopId=${fromStopId}&toStopId=${toStopId}`);
         if (!response.ok) return [];
         const data = await response.json();
         return data.success
@@ -1257,7 +1257,7 @@ async function loadTransitShape(action) {
 async function updateLiveVehicles(tripIds) {
     const status = document.getElementById("live-status");
     try {
-        const response = await fetch(`http://localhost:3000/api/realtime/vehicles?tripIds=${encodeURIComponent(tripIds.join(","))}`);
+        const response = await fetch(`/api/realtime/vehicles?tripIds=${encodeURIComponent(tripIds.join(","))}`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error);
         const activeIds = new Set();

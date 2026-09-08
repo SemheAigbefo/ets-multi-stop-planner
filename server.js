@@ -1,15 +1,16 @@
 require("dotenv").config();
+const appConfig = require("./src/config/appConfig");
 
 const express = require("express"); //imports Express library
 const cors = require("cors"); //imports cors
-const GtfsRealtimeBindings = require("gtfs-realtime-bindings");
+const registerRealtimeRoutes = require("./src/api/registerRealtimeRoutes");
+const registerShapeRoutes = require("./src/api/registerShapeRoutes");
 
 const stopsData =
     require("./data/processed/stopsRouteJoin.json"); //imports processed ETS stop data
 
 const buildIndexes =
     require("./src/data/buildIndexes"); //imports function that builds stopMap and KD-tree
-const { trimShapeToStops } = require("./src/routing/shapeGeometry");
 
 const getCoordinates =
     require("./src/geocode/coordFun"); //imports geocoding function
@@ -34,8 +35,7 @@ const {
 
 const app = express(); //instance of Express application
 
-const PORT = 3000; // where the server will run, follow industry standards, should not be hardcoded
-const MAXIMUM_WALKING_METRES = 1200;
+const PORT = appConfig.server.port;
 
 
 // Allow Express to read JSON sent by fetch()
@@ -43,52 +43,9 @@ app.use(cors());
 
 app.use(express.json()); //middleware that tells Exp serv to read and parse incoming data
 
-const ETS_VEHICLE_POSITIONS_URL =
-    "https://gtfs.edmonton.ca/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb";
-let vehicleFeedCache = { fetchedAt: 0, vehicles: [] };
-
-app.get("/api/realtime/vehicles", async (req, res) => {
-    try {
-        const requestedTrips = new Set(
-            String(req.query.tripIds || "").split(",").filter(Boolean)
-        );
-        const now = Date.now();
-
-        if (now - vehicleFeedCache.fetchedAt > 10000) {
-            const response = await fetch(ETS_VEHICLE_POSITIONS_URL);
-            if (!response.ok) {
-                throw new Error(`ETS live feed returned ${response.status}`);
-            }
-            const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage
-                .decode(new Uint8Array(await response.arrayBuffer()));
-            vehicleFeedCache = {
-                fetchedAt: now,
-                vehicles: feed.entity.filter(entity => entity.vehicle?.position)
-                    .map(entity => ({
-                        vehicleId: String(entity.vehicle.vehicle?.id || entity.id),
-                        label: entity.vehicle.vehicle?.label || null,
-                        tripId: String(entity.vehicle.trip?.tripId || ""),
-                        routeId: String(entity.vehicle.trip?.routeId || ""),
-                        latitude: Number(entity.vehicle.position.latitude),
-                        longitude: Number(entity.vehicle.position.longitude),
-                        bearing: Number(entity.vehicle.position.bearing || 0),
-                        timestamp: Number(entity.vehicle.timestamp || 0)
-                    }))
-            };
-        }
-
-        const vehicles = requestedTrips.size
-            ? vehicleFeedCache.vehicles.filter(vehicle =>
-                requestedTrips.has(vehicle.tripId))
-            : [];
-        res.json({ success: true, fetchedAt: vehicleFeedCache.fetchedAt,
-            refreshAfterSeconds: 15, vehicles });
-    } catch (error) {
-        res.status(503).json({ success: false,
-            error: "ETS real-time vehicle positions are temporarily unavailable." });
-    }
-});
-
+/* Serve the browser app from the same origin as the API. This lets phones use
+ * the computer's LAN address without any hardcoded localhost URLs. */
+app.use(express.static(__dirname));
 
 /*
  * Build indexes once when the server starts.
@@ -122,19 +79,8 @@ const {
     serviceByDate
 } = buildIndexes(stopsData);
 
-app.get("/api/trips/:tripId/shape", (req, res) => {
-    const trip = tripById.get(String(req.params.tripId));
-    const fromStop = stopById.get(String(req.query.fromStopId || ""));
-    const toStop = stopById.get(String(req.query.toStopId || ""));
-    const fullShape = trip?.shapeId ? shapePointsById.get(String(trip.shapeId)) : null;
-    const points = trimShapeToStops(fullShape, fromStop, toStop);
-
-    if (!trip || !fullShape || points.length < 2) {
-        return res.status(404).json({ success: false,
-            error: "Shape geometry is unavailable for this transit segment." });
-    }
-    res.json({ success: true, tripId: trip.tripId, shapeId: trip.shapeId, points });
-});
+registerRealtimeRoutes({ app, config: appConfig.realtime });
+registerShapeRoutes({ app, tripById, shapePointsById, stopById });
 
 /* This smaller graph is static for the loaded GTFS feed, so build it once. */
 const {
@@ -641,8 +587,8 @@ app.post("/api/route", async (req, res) => {
                         kdTree,
                         lat: coordinates.lat,
                         lon: coordinates.lon,
-                        radiusMetres: 600,
-                        maximumStops: 20
+                        radiusMetres: appConfig.endpoints.searchRadiusMetres,
+                        maximumStops: appConfig.endpoints.maximumStops
                     });
 
 
@@ -782,26 +728,30 @@ app.post("/api/route", async (req, res) => {
                     stopTimesByTrip,
                     serviceByDate,
                     walkingOptions: {
-                        maximumSegmentMetres: MAXIMUM_WALKING_METRES,
-                        maximumTotalWalkingMetres: 3600
+                        maximumSegmentMetres: appConfig.walking.maximumSegmentMetres,
+                        maximumTotalWalkingMetres: appConfig.walking.maximumTotalMetres
                     },
+                    minimumTransferMinutes: appConfig.transit.minimumTransferMinutes,
                     verifyWalking:
                         Boolean(
-                            process.env
-                                .GOOGLE_ROUTES_API_KEY
+                            appConfig.services.googleRoutesApiKey
                         ),
                     googleRoutesApiKey:
-                        process.env
-                            .GOOGLE_ROUTES_API_KEY,
+                        appConfig.services.googleRoutesApiKey,
                     allowedRouteTypes:
                         busesOnly ? ["3"] : null,
                     hierarchicalOptions: {
-                        maximumWalkingMetres: MAXIMUM_WALKING_METRES,
+                        maximumWalkingMetres: appConfig.walking.maximumSegmentMetres,
+                        maximumBoardings: appConfig.transit.maximumBoardings,
+                        maximumRaptorCandidatesToVerify:
+                            appConfig.transit.maximumCandidates,
+                        maximumRaptorWalkingRetries:
+                            appConfig.transit.maximumWalkingRetries,
                         centreByStopId,
                         transitCentreGraph,
                         walkingRouteCache,
-                        orsApiKey: process.env.ORS_API_KEY,
-                        orsMatrixUrl: process.env.ORS_MATRIX_URL
+                        orsApiKey: appConfig.services.orsApiKey,
+                        orsMatrixUrl: appConfig.services.orsMatrixUrl
                     }
                 });
 
@@ -882,12 +832,16 @@ app.post("/api/route", async (req, res) => {
 });
 
 
-function startServer(port = PORT) {
+function startServer(
+    port = PORT,
+    host = appConfig.server.host
+) {
     return app.listen(
         port,
+        host,
         () => {
             console.log(
-                `Server running on http://localhost:${port}`
+                `Server running on http://${host}:${port}`
             );
         }
     );
