@@ -110,8 +110,8 @@ async function run() {
         result.legs[0].itinerary.itinerary[1].encodedPolyline,
         "verified-polyline"
     );
-    assert.equal(result.legs[1].preferenceStatus, "not_requested");
-    assert.equal(result.legs[1].searchedFrom, "08:30:00");
+    assert.equal(result.legs[1].preferenceStatus, "used");
+    assert.equal(result.legs[1].searchedFrom, "08:35:00");
     assert.equal(result.finalArrivalTime, "08:50:00");
 
     // Internal predecessor chains are intentionally excluded from API data.

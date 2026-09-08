@@ -47,7 +47,7 @@ async function run() {
             { routingStop: routingStop(stops[0]) },
             {
                 routingStop: routingStop(stops[1]),
-                /* Legacy intermediate times must be ignored. */
+                /* The passenger wants to remain here until 09:00. */
                 preferredDepartureTime: "09:00:00"
             },
             { routingStop: routingStop(stops[2]) }
@@ -67,11 +67,11 @@ async function run() {
 
     assert.equal(result.success, true);
     assert.equal(result.legs.length, 2);
-    assert.deepEqual(calls, [8 * 3600, 8 * 3600 + 30 * 60]);
+    assert.deepEqual(calls, [8 * 3600, 9 * 3600]);
     assert.equal(result.legs[0].arrivalTime, "08:30:00");
     assert.equal(result.legs[1].earliestAvailableTime, "08:30:00");
-    assert.equal(result.legs[1].preferenceStatus, "not_requested");
-    assert.equal(result.legs[1].searchedFrom, "08:30:00");
+    assert.equal(result.legs[1].preferenceStatus, "used");
+    assert.equal(result.legs[1].searchedFrom, "09:00:00");
     assert.equal(result.legs[1].arrivalTime, "09:15:00");
     assert.equal(result.finalArrivalTime, "09:15:00");
     assert.equal(

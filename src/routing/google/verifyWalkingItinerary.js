@@ -141,7 +141,10 @@ async function verifyWalkingItinerary({
                         tripId: action.tripId,
                         requiredArrivalTimeSeconds:
                             action.departureTimeSeconds - requiredBuffer,
-                        actualArrivalTimeSeconds: currentTime
+                        actualArrivalTimeSeconds: currentTime,
+                        precedingWalk: index > 0 && itinerary[index - 1].type === "walk"
+                            ? { ...itinerary[index - 1] }
+                            : null
                     }
                 );
             }

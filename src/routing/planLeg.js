@@ -76,7 +76,9 @@ async function planLeg({
                 stopById,
                 apiKey: googleRoutesApiKey,
                 fetchImpl,
-                minimumTransferSeconds: minimumTransferMinutes * 60
+                minimumTransferSeconds: minimumTransferMinutes * 60,
+                maximumSegmentMetres:
+                    walkingOptions.maximumSegmentMetres ?? 600
             });
         } else {
             finalJourney = {

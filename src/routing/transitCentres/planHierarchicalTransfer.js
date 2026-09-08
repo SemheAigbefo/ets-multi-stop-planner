@@ -58,83 +58,74 @@ async function planHierarchicalTransfer(options) {
         };
     }
 
-    const raptorJourney = planRaptorJourney({
-        originStopIds: options.originStopIds,
-        destinationStopIds: options.destinationStopIds,
-        originLocation: options.originLocation,
-        destinationLocation: options.destinationLocation,
-        departureTimeSeconds: options.departureTimeSeconds,
-        kdTree: options.kdTree,
-        stopById: options.stopById,
-        tripsByRoute: options.tripsByRoute,
-        stopTimesByTrip: options.stopTimesByTrip,
-        travelDate: options.travelDate,
-        serviceByDate: options.serviceByDate,
-        minimumTransferSeconds:
-            options.minimumTransferSeconds ?? 300,
-        maximumBoardings: options.maximumBoardings ?? 5,
-        maximumWalkingMetres: options.maximumWalkingMetres ?? 600,
-        allowedRouteTypes: options.allowedRouteTypes ?? null
-    });
-
-    if (!raptorJourney.success) {
-        return phase2Failure(phase1, raptorJourney.reason, {
-            raptorJourney
-        });
-    }
-
+    let raptorJourney = null;
     let verifiedJourney = null;
     const verificationFailures = [];
     const rejectedWalkingEdges = new Set();
-    const candidates = (raptorJourney.candidateJourneys || [raptorJourney])
-        .slice(0, options.maximumRaptorCandidatesToVerify ?? 10);
+    const originWalkOverridesByStopId = new Map();
+    const maximumRetries = options.maximumRaptorWalkingRetries ?? 3;
 
-    for (const candidate of candidates) {
-        if (candidate.itinerary.some(action =>
-            action.type === "walk" &&
-            rejectedWalkingEdges.has(walkingEdgeKey(action))
-        )) continue;
+    for (let attempt = 0; attempt <= maximumRetries && !verifiedJourney; attempt++) {
+        raptorJourney = runRaptor(options, originWalkOverridesByStopId);
+        if (!raptorJourney.success) break;
 
-        try {
-            verifiedJourney = await verifyWalkingItinerary({
-                journey: candidate,
-                stopById: options.stopById,
-                apiKey: options.googleRoutesApiKey,
-                fetchImpl: options.fetchImpl,
-                minimumTransferSeconds:
-                    options.minimumTransferSeconds ?? 300,
-                maximumSegmentMetres:
-                    options.maximumWalkingMetres ?? 600
-            });
-            verifiedJourney.actions = verifiedJourney.itinerary;
-            break;
-        } catch (error) {
-            if (!(error instanceof WalkingVerificationError)) throw error;
-            verificationFailures.push({
-                code: error.code,
-                details: error.details
-            });
+        const candidates = (raptorJourney.candidateJourneys || [raptorJourney])
+            .slice(0, options.maximumRaptorCandidatesToVerify ?? 10);
+        let shouldRetryWithVerifiedOriginWalk = false;
 
-            if (
-                error.code === "WALKING_DISTANCE_EXCEEDED" &&
-                Number.isInteger(error.details?.actionIndex)
-            ) {
-                const rejectedAction =
-                    candidate.itinerary[error.details.actionIndex];
-                if (rejectedAction?.type === "walk") {
-                    rejectedWalkingEdges.add(
-                        walkingEdgeKey(rejectedAction)
+        for (const candidate of candidates) {
+            if (candidate.itinerary.some(action =>
+                action.type === "walk" &&
+                rejectedWalkingEdges.has(walkingEdgeKey(action))
+            )) continue;
+
+            try {
+                verifiedJourney = await verifyWalkingItinerary({
+                    journey: candidate,
+                    stopById: options.stopById,
+                    apiKey: options.googleRoutesApiKey,
+                    fetchImpl: options.fetchImpl,
+                    minimumTransferSeconds:
+                        options.minimumTransferSeconds ?? 300,
+                    maximumSegmentMetres:
+                        options.maximumWalkingMetres ?? 600
+                });
+                verifiedJourney.actions = verifiedJourney.itinerary;
+                break;
+            } catch (error) {
+                if (!(error instanceof WalkingVerificationError)) throw error;
+                verificationFailures.push({ code: error.code, details: error.details });
+
+                const verifiedOriginWalk = error.details?.precedingWalk;
+                if (error.code === "WALKING_CONNECTION_INFEASIBLE" &&
+                    verifiedOriginWalk?.kind === "origin_access" &&
+                    verifiedOriginWalk.toStopId != null) {
+                    originWalkOverridesByStopId.set(
+                        String(verifiedOriginWalk.toStopId),
+                        { ...verifiedOriginWalk, estimated: false }
                     );
+                    shouldRetryWithVerifiedOriginWalk = true;
+                    break;
+                }
+
+                if (error.code === "WALKING_DISTANCE_EXCEEDED" &&
+                    Number.isInteger(error.details?.actionIndex)) {
+                    const rejectedAction = candidate.itinerary[error.details.actionIndex];
+                    if (rejectedAction?.type === "walk") {
+                        rejectedWalkingEdges.add(walkingEdgeKey(rejectedAction));
+                    }
                 }
             }
         }
+
+        if (!shouldRetryWithVerifiedOriginWalk) break;
     }
 
     if (!verifiedJourney) {
         const lastFailure = verificationFailures.at(-1);
         return phase2Failure(
             phase1,
-            lastFailure?.code || "raptor_candidates_not_verified",
+            raptorJourney?.reason || lastFailure?.code || "raptor_candidates_not_verified",
             { raptorJourney, verificationFailures }
         );
     }
@@ -153,6 +144,28 @@ async function planHierarchicalTransfer(options) {
         verifiedJourney,
         finalArrivalTime: verifiedJourney.arrivalTime
     };
+}
+
+
+function runRaptor(options, originWalkOverridesByStopId) {
+    return planRaptorJourney({
+        originStopIds: options.originStopIds,
+        destinationStopIds: options.destinationStopIds,
+        originLocation: options.originLocation,
+        destinationLocation: options.destinationLocation,
+        departureTimeSeconds: options.departureTimeSeconds,
+        kdTree: options.kdTree,
+        stopById: options.stopById,
+        tripsByRoute: options.tripsByRoute,
+        stopTimesByTrip: options.stopTimesByTrip,
+        travelDate: options.travelDate,
+        serviceByDate: options.serviceByDate,
+        minimumTransferSeconds: options.minimumTransferSeconds ?? 300,
+        maximumBoardings: options.maximumBoardings ?? 5,
+        maximumWalkingMetres: options.maximumWalkingMetres ?? 600,
+        allowedRouteTypes: options.allowedRouteTypes ?? null,
+        originWalkOverridesByStopId
+    });
 }
 
 

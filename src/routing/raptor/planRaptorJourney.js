@@ -14,7 +14,8 @@ function planRaptorJourney({
     maximumBoardings = 5, minimumTransferSeconds = 300,
     maximumWaitSeconds = 7200, maximumJourneySeconds = 4 * 3600,
     maximumWalkingMetres = 600, walkingSpeedMetresPerSecond = 1.4,
-    walkingDetourFactor = 1.2, allowedRouteTypes = null
+    walkingDetourFactor = 1.2, allowedRouteTypes = null,
+    originWalkOverridesByStopId = null
 }) {
     const start = Number(departureTimeSeconds);
     const activeServices = serviceByDate.get(travelDate);
@@ -26,8 +27,9 @@ function planRaptorJourney({
         const id = String(idValue);
         const stop = stopById.get(id);
         if (!stop) continue;
-        const walk = originLocation ? walkingBetween(originLocation, stop,
+        const estimatedWalk = originLocation ? walkingBetween(originLocation, stop,
             walkingSpeedMetresPerSecond, walkingDetourFactor) : null;
+        const walk = originWalkOverridesByStopId?.get(id) || estimatedWalk;
         if (walk && walk.distanceMetres > maximumWalkingMetres) continue;
         const label = {
             stopId: id, arrivalTimeSeconds: start + (walk?.durationSeconds || 0),
@@ -70,10 +72,11 @@ function planRaptorJourney({
                     const time = times[index];
                     const atStop = previous.get(String(time.stopId));
                     const departure = gtfsTimeToSeconds(time.departureTime);
-                    if (!boarded && atStop) {
+                    if (atStop) {
                         const buffer = atStop.boardings ? minimumTransferSeconds : 0;
                         const wait = departure - atStop.arrivalTimeSeconds;
-                        if (wait >= buffer && wait <= maximumWaitSeconds) {
+                        if (wait >= buffer && wait <= maximumWaitSeconds &&
+                            isBetterBoarding(atStop, departure, boarded)) {
                             boarded = { label: atStop, time, departure };
                         }
                     }
@@ -137,8 +140,13 @@ function planRaptorJourney({
     for (const label of destinationLabels) {
         const candidate = journeyFromLabel(label, start, tripsScanned,
             destinationLabels.length, maximumBoardings);
-        const key = candidate.itinerary.map(action => [action.type,
-            action.tripId || "", action.fromStopId, action.toStopId].join("|"))
+        // Ignore destination-bay-only variations, but preserve a different
+        // boarding or alighting stop because it can produce a much shorter
+        // Google-verified walk.
+        const key = candidate.itinerary
+            .filter(action => action.type === "transit")
+            .map(action => [action.tripId, action.fromStopId, action.toStopId]
+                .join("|"))
             .join(">");
         if (itineraryKeys.has(key)) continue;
         itineraryKeys.add(key);
@@ -170,6 +178,21 @@ function keepEarlier(map, label) {
     const old = map.get(label.stopId);
     if (old && old.arrivalTimeSeconds <= label.arrivalTimeSeconds) return false;
     map.set(label.stopId, label); return true;
+}
+
+/* A vehicle may serve several stops within walking range of the origin. Keep
+ * scanning that same trip and board later when doing so reaches the identical
+ * downstream vehicle with less walking. This prevents GTFS stop_sequence from
+ * arbitrarily winning over a much closer boarding stop. */
+function isBetterBoarding(candidate, departure, boarded) {
+    if (!boarded) return true;
+    if (candidate.walkingSeconds !== boarded.label.walkingSeconds) {
+        return candidate.walkingSeconds < boarded.label.walkingSeconds;
+    }
+    if (candidate.boardings !== boarded.label.boardings) {
+        return candidate.boardings < boarded.label.boardings;
+    }
+    return departure < boarded.departure;
 }
 function walkingBetween(a, b, speed, factor) {
     return estimateWalking(distanceMetres(a.lat, a.lon, b.lat, b.lon),

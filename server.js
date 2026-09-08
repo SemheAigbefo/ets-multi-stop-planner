@@ -2,12 +2,14 @@ require("dotenv").config();
 
 const express = require("express"); //imports Express library
 const cors = require("cors"); //imports cors
+const GtfsRealtimeBindings = require("gtfs-realtime-bindings");
 
 const stopsData =
     require("./data/processed/stopsRouteJoin.json"); //imports processed ETS stop data
 
 const buildIndexes =
     require("./src/data/buildIndexes"); //imports function that builds stopMap and KD-tree
+const { trimShapeToStops } = require("./src/routing/shapeGeometry");
 
 const getCoordinates =
     require("./src/geocode/coordFun"); //imports geocoding function
@@ -33,12 +35,59 @@ const {
 const app = express(); //instance of Express application
 
 const PORT = 3000; // where the server will run, follow industry standards, should not be hardcoded
+const MAXIMUM_WALKING_METRES = 1200;
 
 
 // Allow Express to read JSON sent by fetch()
 app.use(cors());
 
 app.use(express.json()); //middleware that tells Exp serv to read and parse incoming data
+
+const ETS_VEHICLE_POSITIONS_URL =
+    "https://gtfs.edmonton.ca/TMGTFSRealTimeWebService/Vehicle/VehiclePositions.pb";
+let vehicleFeedCache = { fetchedAt: 0, vehicles: [] };
+
+app.get("/api/realtime/vehicles", async (req, res) => {
+    try {
+        const requestedTrips = new Set(
+            String(req.query.tripIds || "").split(",").filter(Boolean)
+        );
+        const now = Date.now();
+
+        if (now - vehicleFeedCache.fetchedAt > 10000) {
+            const response = await fetch(ETS_VEHICLE_POSITIONS_URL);
+            if (!response.ok) {
+                throw new Error(`ETS live feed returned ${response.status}`);
+            }
+            const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage
+                .decode(new Uint8Array(await response.arrayBuffer()));
+            vehicleFeedCache = {
+                fetchedAt: now,
+                vehicles: feed.entity.filter(entity => entity.vehicle?.position)
+                    .map(entity => ({
+                        vehicleId: String(entity.vehicle.vehicle?.id || entity.id),
+                        label: entity.vehicle.vehicle?.label || null,
+                        tripId: String(entity.vehicle.trip?.tripId || ""),
+                        routeId: String(entity.vehicle.trip?.routeId || ""),
+                        latitude: Number(entity.vehicle.position.latitude),
+                        longitude: Number(entity.vehicle.position.longitude),
+                        bearing: Number(entity.vehicle.position.bearing || 0),
+                        timestamp: Number(entity.vehicle.timestamp || 0)
+                    }))
+            };
+        }
+
+        const vehicles = requestedTrips.size
+            ? vehicleFeedCache.vehicles.filter(vehicle =>
+                requestedTrips.has(vehicle.tripId))
+            : [];
+        res.json({ success: true, fetchedAt: vehicleFeedCache.fetchedAt,
+            refreshAfterSeconds: 15, vehicles });
+    } catch (error) {
+        res.status(503).json({ success: false,
+            error: "ETS real-time vehicle positions are temporarily unavailable." });
+    }
+});
 
 
 /*
@@ -67,9 +116,25 @@ const {
     stopById,
     kdTree,
     tripsByRoute,
+    tripById,
+    shapePointsById,
     stopTimesByTrip,
     serviceByDate
 } = buildIndexes(stopsData);
+
+app.get("/api/trips/:tripId/shape", (req, res) => {
+    const trip = tripById.get(String(req.params.tripId));
+    const fromStop = stopById.get(String(req.query.fromStopId || ""));
+    const toStop = stopById.get(String(req.query.toStopId || ""));
+    const fullShape = trip?.shapeId ? shapePointsById.get(String(trip.shapeId)) : null;
+    const points = trimShapeToStops(fullShape, fromStop, toStop);
+
+    if (!trip || !fullShape || points.length < 2) {
+        return res.status(404).json({ success: false,
+            error: "Shape geometry is unavailable for this transit segment." });
+    }
+    res.json({ success: true, tripId: trip.tripId, shapeId: trip.shapeId, points });
+});
 
 /* This smaller graph is static for the loaded GTFS feed, so build it once. */
 const {
@@ -458,6 +523,7 @@ app.post("/api/route", async (req, res) => {
     const {
         stops,
         departureTime,
+        preferredDepartureTimes = [],
         travelDate,
         departureDateTime,
         busesOnly = false
@@ -698,8 +764,10 @@ app.post("/api/route", async (req, res) => {
          */
         if (results.length >= 2) {
 
-            const routeStops = results.map(result => ({
-                routingStop: result.routingStop
+            const routeStops = results.map((result, index) => ({
+                routingStop: result.routingStop,
+                preferredDepartureTime:
+                    preferredDepartureTimes[index] || null
             }));
 
             multiStopTrip =
@@ -713,6 +781,10 @@ app.post("/api/route", async (req, res) => {
                     tripsByRoute,
                     stopTimesByTrip,
                     serviceByDate,
+                    walkingOptions: {
+                        maximumSegmentMetres: MAXIMUM_WALKING_METRES,
+                        maximumTotalWalkingMetres: 3600
+                    },
                     verifyWalking:
                         Boolean(
                             process.env
@@ -724,6 +796,7 @@ app.post("/api/route", async (req, res) => {
                     allowedRouteTypes:
                         busesOnly ? ["3"] : null,
                     hierarchicalOptions: {
+                        maximumWalkingMetres: MAXIMUM_WALKING_METRES,
                         centreByStopId,
                         transitCentreGraph,
                         walkingRouteCache,

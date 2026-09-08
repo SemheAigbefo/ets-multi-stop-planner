@@ -137,6 +137,7 @@ function buildIndexes(stops) {
 
     const tripsByRoute =
         new Map();
+    const tripById = new Map();
 
 
     for (const trip of trips) {
@@ -146,7 +147,8 @@ function buildIndexes(stops) {
             service_id,
             trip_id,
             trip_headsign,
-            direction_id
+            direction_id,
+            shape_id
         } = trip;
 
 
@@ -167,9 +169,7 @@ function buildIndexes(stops) {
          * Add this trip to the array belonging
          * to its route.
          */
-        tripsByRoute
-            .get(route_id)
-            .push({
+        const indexedTrip = {
 
                 tripId: trip_id,
 
@@ -179,8 +179,27 @@ function buildIndexes(stops) {
 
                 directionId: direction_id,
 
-                routeType: routeTypeById.get(String(route_id)) ?? null
-            });
+                routeType: routeTypeById.get(String(route_id)) ?? null,
+
+                shapeId: shape_id || null
+            };
+
+        tripsByRoute.get(route_id).push(indexedTrip);
+        tripById.set(String(trip_id), indexedTrip);
+    }
+
+    const shapePointsById = new Map();
+    for (const point of readGtfsFile("shapes.txt")) {
+        const shapeId = String(point.shape_id);
+        if (!shapePointsById.has(shapeId)) shapePointsById.set(shapeId, []);
+        shapePointsById.get(shapeId).push({
+            lat: Number(point.shape_pt_lat),
+            lon: Number(point.shape_pt_lon),
+            sequence: Number(point.shape_pt_sequence)
+        });
+    }
+    for (const points of shapePointsById.values()) {
+        points.sort((a, b) => a.sequence - b.sequence);
     }
 
 
@@ -355,6 +374,10 @@ function buildIndexes(stops) {
         kdTree,
 
         tripsByRoute,
+
+        tripById,
+
+        shapePointsById,
 
         stopTimesByTrip,
 

@@ -8,6 +8,7 @@
     >
 
     <title>ETS Route Planner</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         * {
             box-sizing: border-box;
@@ -454,6 +455,54 @@
 
         }
 
+        [hidden] { display: none !important; }
+        .results-screen { display: grid; gap: 16px; }
+        .results-top { display: flex; align-items: center; gap: 14px; }
+        .back-button { border: 0; background: #fff; color: #005eb8;
+            padding: 10px 14px; border-radius: 9px; font-weight: 700;
+            cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+        .journey-summary { color: white; background: #005eb8;
+            border-radius: 16px; padding: 22px; }
+        .journey-summary h2 { margin: 0 0 8px; font-size: 24px; }
+        .journey-summary p { margin: 4px 0; color: #e8f3ff; }
+        .leg-result { border: 1px solid #d9e0e6; border-left: 5px solid var(--leg-color, #005eb8); border-radius: 14px;
+            background: white; overflow: hidden; }
+        .leg-result summary { cursor: pointer; list-style: none; padding: 18px;
+            display: grid; grid-template-columns: 42px 1fr auto; gap: 12px;
+            align-items: center; }
+        .leg-result summary::-webkit-details-marker { display: none; }
+        .leg-number { width: 36px; height: 36px; display: grid;
+            place-items: center; border-radius: 50%; color: white;
+            background: var(--leg-color, #005eb8); font-weight: 700; }
+        .leg-route strong, .leg-route span { display: block; }
+        .leg-route span, .leg-time { color: #667085; font-size: 13px; }
+        .leg-steps { border-top: 1px solid #e7ebef; padding: 8px 18px 18px; }
+        .direction-step { display: grid; grid-template-columns: 38px 1fr;
+            gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0f2; }
+        .direction-step:last-child { border-bottom: 0; }
+        .step-icon { width: 34px; height: 34px; display: grid;
+            place-items: center; border-radius: 9px; background: #eaf3fb;
+            color: var(--leg-color, #005eb8); font-weight: 800; font-size: 12px; }
+        .step-icon svg { width: 21px; height: 21px; fill: currentColor; }
+        .step-title { margin: 0 0 5px; font-weight: 700; }
+        .step-detail { margin: 2px 0; color: #59636e; font-size: 13px; }
+        .mode-badge { display: inline-block; margin-right: 5px; padding: 2px 7px;
+            border-radius: 12px; background: #fff; color: var(--leg-color, #005eb8);
+            border: 1px solid var(--leg-color, #005eb8);
+            font-size: 11px; text-transform: uppercase; }
+        .result-error { background: #fff3f3; color: #9b1c1c; border-radius: 12px;
+            padding: 18px; }
+        #journey-map { height: 390px; border-radius: 14px; background: #dfe8ef;
+            margin-top: 18px; overflow: hidden; }
+        .live-status { margin-top: 10px; font-size: 13px; color: #e8f3ff; }
+        .vehicle-marker { width: 30px; height: 30px; border-radius: 50%;
+            display: grid; place-items: center; background: #f7b500; color: #17202a;
+            border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+            font-weight: 800; font-size: 11px; }
+        @media (max-width: 560px) {
+            .leg-result summary { grid-template-columns: 38px 1fr; }
+            .leg-time { grid-column: 2; }
+        }
     </style>
 
 </head>
@@ -483,8 +532,7 @@
          ROUTE FORM
     ================================== -->
 
-    <form id="route-form"  >
-    >
+    <form id="route-form" class="route-form">
         <!-- =================================
              STOP 1
         ================================== -->
@@ -524,8 +572,6 @@
 
 
 
-            <!-- ONLY STOP 1 HAS TIME -->
-
             <div class="time-section">
                 <label
                     class="time-label"
@@ -537,7 +583,7 @@
                     type="time"
                     id="time1"
                     name="time1"
-                    class="time-input"
+                    class="time-input stop-departure-time"
                     step="60"
                 >
                 <label for="travel-date">Travel date:</label>
@@ -591,11 +637,22 @@
 
     </form>
 
+    <section id="results-screen" class="results-screen" hidden
+        aria-live="polite">
+        <div class="results-top">
+            <button type="button" id="back-to-search" class="back-button">
+                ← Edit journey
+            </button>
+        </div>
+        <div id="results-content"></div>
+    </section>
+
 
 </div>
 
 
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ==================================================
    STOP COUNT
@@ -654,6 +711,14 @@ function addStop() {
             <div class="suggestions"></div>
 
         </div>
+
+        <div class="time-section">
+            <label class="time-label">Leave this stop at (optional)</label>
+            <input type="time" class="time-input stop-departure-time" step="60">
+            <div class="time-hint">
+                Leave blank to continue when you arrive. Ignored for the final stop.
+            </div>
+        </div>
     `;
 
 
@@ -698,6 +763,7 @@ function renumberStops() {
    LOAD KNOWN STOPS
 ================================================== */
 let knownStops = [];
+const stopDetailsById = new Map();
 fetch("stopsRouteJoin.json")
     .then(response => response.json())
     .then(data => {
@@ -706,6 +772,9 @@ fetch("stopsRouteJoin.json")
                 data.map(stop => stop.name)
             )
         ];
+        data.forEach(stop =>
+            stopDetailsById.set(String(stop.stopId), stop)
+        );
         console.log(
             "Loaded stops:",
             knownStops
@@ -850,6 +919,9 @@ addStop(); /*Automatically loads stop 2 when page loads*/
 ================================================== */
 const form =
     document.getElementById("route-form");
+let journeyMap = null;
+let realtimeTimer = null;
+let vehicleMarkers = new Map();
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
      //console.log("🚨 FORM SUBMITTED");
@@ -905,13 +977,13 @@ const departureDateTime =
 
 
 /* Collect all user inputs */
-const inputs =
-    document.querySelectorAll(".stop-input");
-
-const stops =
-    Array.from(inputs).map(input => ({
-        name: input.value.trim()
-    }));
+const stopCards = document.querySelectorAll(".stop-card");
+const stops = Array.from(stopCards).map(card => ({
+    name: card.querySelector(".stop-input").value.trim()
+}));
+const preferredDepartureTimes = Array.from(stopCards).map(card =>
+    card.querySelector(".stop-departure-time")?.value || null
+);
 
 
 /* Send data to backend */
@@ -932,6 +1004,8 @@ const response =
                 departureTime:
                     departureTime.value,
 
+                preferredDepartureTimes,
+
                 travelDate:
                     gtfsTravelDate,
 
@@ -951,7 +1025,284 @@ console.log(
     "Backend response:",
     data
 );
+
+renderJourneyResults(data);
 });
+
+document.getElementById("back-to-search").addEventListener("click", () => {
+    document.getElementById("results-screen").hidden = true;
+    form.hidden = false;
+    clearInterval(realtimeTimer);
+    document.querySelector(".header p").textContent =
+        "Choose your stops and find the best route.";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+function renderJourneyResults(data) {
+    const screen = document.getElementById("results-screen");
+    const content = document.getElementById("results-content");
+    const journey = data.multiStopTrip;
+
+    form.hidden = true;
+    screen.hidden = false;
+    document.querySelector(".header p").textContent =
+        "Your complete ETS journey.";
+
+    if (!data.success || !journey?.success) {
+        const failed = journey?.failedLeg
+            ? ` Leg ${journey.failedLeg} could not be planned.`
+            : "";
+        content.innerHTML = `<div class="result-error"><strong>No complete route found.</strong>${failed}</div>`;
+        return;
+    }
+
+    const first = journey.legs[0];
+    const last = journey.legs[journey.legs.length - 1];
+    content.innerHTML = `
+        <div class="journey-summary">
+            <h2>${escapeHtml(first.origin)} → ${escapeHtml(last.destination)}</h2>
+            <p>${journey.legs.length} ${journey.legs.length === 1 ? "leg" : "legs"}</p>
+            <p>Leave ${formatTime(first.actualDepartureTime)} · Arrive ${formatTime(journey.finalArrivalTime)}</p>
+            <div id="journey-map" aria-label="Journey map"></div>
+            <p id="live-status" class="live-status">Loading map…</p>
+        </div>
+        ${journey.legs.map((leg, index) => renderLeg(leg, index)).join("")}
+    `;
+    renderJourneyMap(journey);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderLeg(leg, index) {
+    const actions = leg.itinerary?.itinerary || [];
+    const legColour = LEG_COLOURS[index % LEG_COLOURS.length];
+    return `
+        <details class="leg-result" style="--leg-color:${legColour}" ${index === 0 ? "open" : ""}>
+            <summary>
+                <span class="leg-number">${leg.legNumber}</span>
+                <span class="leg-route">
+                    <strong>${escapeHtml(leg.origin)} → ${escapeHtml(leg.destination)}</strong>
+                    <span>${actions.filter(a => a.type === "transit").length} transit rides</span>
+                </span>
+                <span class="leg-time">${formatTime(leg.actualDepartureTime)} – ${formatTime(leg.arrivalTime)}</span>
+            </summary>
+            <div class="leg-steps">
+                ${actions.map((action, i) => renderDirection(action, leg, i)).join("")}
+            </div>
+        </details>`;
+}
+
+function renderDirection(action, leg, index) {
+    const from = endpointName(action, "from", leg);
+    const to = endpointName(action, "to", leg);
+    if (action.type === "walk") {
+        const minutes = action.durationMinutes ??
+            (Number.isFinite(action.durationSeconds)
+                ? Math.ceil(action.durationSeconds / 60) : null);
+        const distance = Number.isFinite(action.distanceMetres)
+            ? `${Math.round(action.distanceMetres)} m` : null;
+        return stepHtml("Walk", directionIcon("walk"), from, to,
+            [minutes !== null ? `${minutes} min walk` : "Walking time unavailable", distance]
+                .filter(Boolean).join(" · "));
+    }
+    const mode = action.transitMode ||
+        (String(action.routeType) === "0" ? "train" : "bus");
+    const title = `${mode === "train" ? "Train" : "Bus"} ${escapeHtml(action.routeId || "")}`;
+    const detail = `${formatTime(action.departureTime)} – ${formatTime(action.arrivalTime)}` +
+        (action.headsign ? ` · toward ${escapeHtml(action.headsign)}` : "");
+    return stepHtml(title, directionIcon(mode), from, to, detail, mode);
+}
+
+function directionIcon(mode) {
+    if (mode === "train") {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3l2 3h-3l-1.3-2H9.3L8 21H5l2-3a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm0 3v6h10V5H7Zm1 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm8 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>`;
+    }
+    if (mode === "bus") {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12a3 3 0 0 1 3 3v11a2 2 0 0 1-2 2v3h-3v-2H8v2H5v-3a2 2 0 0 1-2-2V5a3 3 0 0 1 3-3Zm0 3v6h12V5H6Zm1 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 5.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0ZM10 9h3l2 5h4v2h-5.4l-1.1-2.5L11 17l3 4h-3l-3-4 2-5-2 1.5V17H6v-4.5L10 9Z"/></svg>`;
+}
+
+function stepHtml(title, icon, from, to, detail, mode = "walk") {
+    return `<div class="direction-step">
+        <span class="step-icon">${icon}</span>
+        <div><p class="step-title"><span class="mode-badge">${mode}</span>${title}</p>
+        <p class="step-detail">${escapeHtml(from)} → ${escapeHtml(to)}</p>
+        <p class="step-detail">${detail}</p></div></div>`;
+}
+
+function endpointName(action, side, leg) {
+    const stopId = action[`${side}StopId`];
+    if (stopId !== null && stopId !== undefined) {
+        return stopDetailsById.get(String(stopId))?.name || String(stopId);
+    }
+    return action[`${side}Name`] || (side === "from" ? leg.origin : leg.destination);
+}
+
+function formatTime(value) {
+    if (!value) return "—";
+    const [rawHour, minute] = String(value).split(":").map(Number);
+    const hour = rawHour % 24;
+    const suffix = hour >= 12 ? "PM" : "AM";
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>'"]/g, character => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;",
+        "'": "&#39;", '"': "&quot;"
+    })[character]);
+}
+
+const LEG_COLOURS = ["#005eb8", "#7b2cbf", "#d1495b"];
+
+async function renderJourneyMap(journey) {
+    const status = document.getElementById("live-status");
+    if (!window.L) {
+        status.textContent = "The map library could not be loaded.";
+        return;
+    }
+    if (journeyMap) journeyMap.remove();
+    clearInterval(realtimeTimer);
+    vehicleMarkers = new Map();
+    journeyMap = L.map("journey-map", { zoomControl: true });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors"
+    }).addTo(journeyMap);
+
+    const allBounds = [];
+    const legLayers = [];
+    const shapeRequests = [];
+    journey.legs.forEach((leg, legIndex) => {
+        const group = L.featureGroup().addTo(journeyMap);
+        legLayers.push(group);
+        const colour = LEG_COLOURS[legIndex % LEG_COLOURS.length];
+        for (const action of leg.itinerary?.itinerary || []) {
+            const from = mapPoint(action, "from");
+            const to = mapPoint(action, "to");
+            if (!from || !to) continue;
+            const fallbackPoints = [from, to];
+            const points = action.type === "walk" && action.encodedPolyline
+                ? decodeGooglePolyline(action.encodedPolyline)
+                : fallbackPoints;
+            const drawLine = linePoints => L.polyline(linePoints, {
+                color: action.type === "walk" ? "#59636e" : colour,
+                weight: action.type === "walk" ? 4 : 6,
+                dashArray: action.type === "walk" ? "7 7" : null,
+                opacity: .9
+            }).addTo(group);
+            if (action.type === "transit" && action.tripId &&
+                action.fromStopId != null && action.toStopId != null) {
+                shapeRequests.push(loadTransitShape(action).then(shapePoints => {
+                    const linePoints = shapePoints.length >= 2 ? shapePoints : fallbackPoints;
+                    const line = drawLine(linePoints);
+                    line.bindPopup(`${action.transitMode === "train" ? "Train" : "Bus"} ${escapeHtml(action.routeId)}`);
+                    allBounds.push(...linePoints);
+                }));
+                continue;
+            }
+            const line = drawLine(points);
+            line.bindPopup(action.type === "walk"
+                ? `${action.durationMinutes || Math.ceil(action.durationSeconds / 60)} min walk`
+                : `${action.transitMode === "train" ? "Train" : "Bus"} ${escapeHtml(action.routeId)}`);
+            allBounds.push(...points);
+        }
+    });
+
+    await Promise.all(shapeRequests);
+
+    if (allBounds.length) journeyMap.fitBounds(allBounds, { padding: [28, 28] });
+    else journeyMap.setView([53.5461, -113.4938], 11);
+
+    document.querySelectorAll(".leg-result").forEach((details, index) => {
+        details.addEventListener("toggle", () => {
+            if (details.open) {
+                const bounds = legLayers[index]?.getBounds();
+                if (bounds?.isValid()) journeyMap.fitBounds(bounds, { padding: [35, 35] });
+            }
+        });
+    });
+
+    const tripIds = journey.legs.flatMap(leg =>
+        (leg.itinerary?.itinerary || [])
+            .filter(action => action.type === "transit" && action.tripId)
+            .map(action => action.tripId)
+    );
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+    if (journey.travelDate !== todayKey) {
+        status.textContent = "Scheduled journey — live vehicles are shown for today’s trips.";
+        return;
+    }
+    updateLiveVehicles(tripIds);
+    realtimeTimer = setInterval(() => updateLiveVehicles(tripIds), 15000);
+}
+
+async function loadTransitShape(action) {
+    try {
+        const tripId = encodeURIComponent(action.tripId);
+        const fromStopId = encodeURIComponent(action.fromStopId);
+        const toStopId = encodeURIComponent(action.toStopId);
+        const response = await fetch(`http://localhost:3000/api/trips/${tripId}/shape?fromStopId=${fromStopId}&toStopId=${toStopId}`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.success
+            ? data.points.map(point => [Number(point.lat), Number(point.lon)])
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+async function updateLiveVehicles(tripIds) {
+    const status = document.getElementById("live-status");
+    try {
+        const response = await fetch(`http://localhost:3000/api/realtime/vehicles?tripIds=${encodeURIComponent(tripIds.join(","))}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error);
+        const activeIds = new Set();
+        data.vehicles.forEach(vehicle => {
+            activeIds.add(vehicle.vehicleId);
+            let marker = vehicleMarkers.get(vehicle.vehicleId);
+            if (!marker) {
+                marker = L.marker([vehicle.latitude, vehicle.longitude], {
+                    icon: L.divIcon({ className: "", html: `<div class="vehicle-marker">${escapeHtml(vehicle.routeId || "ETS")}</div>`, iconSize: [30, 30] })
+                }).addTo(journeyMap).bindPopup(`Live vehicle ${escapeHtml(vehicle.label || vehicle.vehicleId)}`);
+                vehicleMarkers.set(vehicle.vehicleId, marker);
+            } else marker.setLatLng([vehicle.latitude, vehicle.longitude]);
+        });
+        for (const [id, marker] of vehicleMarkers) {
+            if (!activeIds.has(id)) { journeyMap.removeLayer(marker); vehicleMarkers.delete(id); }
+        }
+        status.textContent = data.vehicles.length
+            ? `${data.vehicles.length} matching live ${data.vehicles.length === 1 ? "vehicle" : "vehicles"} · updates every 15 seconds`
+            : "No matching vehicle is currently reporting; scheduled route shown.";
+    } catch {
+        status.textContent = "Live vehicles temporarily unavailable; scheduled route shown.";
+    }
+}
+
+function mapPoint(action, side) {
+    const location = action[`${side}Location`];
+    if (location) return [Number(location.lat), Number(location.lon)];
+    const stop = stopDetailsById.get(String(action[`${side}StopId`]));
+    return stop ? [Number(stop.lat), Number(stop.lon)] : null;
+}
+
+function decodeGooglePolyline(encoded) {
+    let index = 0, latitude = 0, longitude = 0;
+    const points = [];
+    while (index < encoded.length) {
+        let result = 0, shift = 0, byte;
+        do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 31) << shift; shift += 5; } while (byte >= 32);
+        latitude += result & 1 ? ~(result >> 1) : result >> 1;
+        result = 0; shift = 0;
+        do { byte = encoded.charCodeAt(index++) - 63; result |= (byte & 31) << shift; shift += 5; } while (byte >= 32);
+        longitude += result & 1 ? ~(result >> 1) : result >> 1;
+        points.push([latitude / 1e5, longitude / 1e5]);
+    }
+    return points;
+}
 
 </script>
 </body>

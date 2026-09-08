@@ -169,12 +169,12 @@ async function planMultiStopTrip({
         const destination =
             routeStops[index + 1];
 
-        /* Only the journey origin has a requested departure time. Later
-         * legs begin as soon as the preceding verified leg arrives. */
+        /* A time entered on a location applies when leaving that location.
+         * Blank intermediate times continue from the preceding arrival. */
         const preferredDepartureTime =
             index === 0
                 ? initialDepartureTime
-                : null;
+                : routeStops[index].preferredDepartureTime || null;
 
         const {
             effectiveDepartureTime,
