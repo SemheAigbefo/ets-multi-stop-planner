@@ -43,6 +43,13 @@ app.use(cors());
 
 app.use(express.json()); //middleware that tells Exp serv to read and parse incoming data
 
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "ok",
+        uptimeSeconds: Math.floor(process.uptime())
+    });
+});
+
 /* Serve the browser app from the same origin as the API. This lets phones use
  * the computer's LAN address without any hardcoded localhost URLs. */
 app.use(express.static(__dirname));
@@ -778,6 +785,13 @@ app.post("/api/route", async (req, res) => {
 
             departureTime:
                 departureTime,
+
+            scheduleBasis:
+                serviceByDate.resolutionFor?.(travelDate) || {
+                    requestedDate: travelDate,
+                    sourceDate: travelDate,
+                    exact: true
+                },
 
             stops:
                 results,

@@ -1063,6 +1063,9 @@ function renderJourneyResults(data) {
             <h2>${escapeHtml(first.origin)} → ${escapeHtml(last.destination)}</h2>
             <p>${journey.legs.length} ${journey.legs.length === 1 ? "leg" : "legs"}</p>
             <p>Leave ${formatTime(first.actualDepartureTime)} · Arrive ${formatTime(journey.finalArrivalTime)}</p>
+            ${data.scheduleBasis?.exact === false
+                ? `<p>Schedule estimate: ${escapeHtml(data.scheduleBasis.dayType)} service</p>`
+                : ""}
             <div id="journey-map" aria-label="Journey map"></div>
             <p id="live-status" class="live-status">Loading map…</p>
         </div>

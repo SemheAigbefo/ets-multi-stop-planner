@@ -12,6 +12,7 @@
 // Run with: node src/data/loadGtfs.js
 const fs = require('fs');
 const path = require('path');
+const { StringDecoder } = require('string_decoder');
 
 const RAW_DIR = path.join(__dirname, '../../data/raw');
 const OUT_FILE = path.join(__dirname, '../../data/processed/stopsRouteJoin.json');
@@ -59,12 +60,99 @@ function readGtfsFile(filename) {
   return parseCsv(text);
 }
 
+/*
+ * Iterates a CSV file without retaining its complete text or parsed rows.
+ *
+ * The parser keeps CSV state across chunks, so quoted commas, escaped quotes,
+ * CRLF input, UTF-8 characters split across chunks, and quoted newlines remain
+ * valid. Only one decoded chunk and one row object are temporary at a time.
+ */
+function forEachCsvRow(filePath, onRow, { chunkSize = 64 * 1024 } = {}) {
+  const descriptor = fs.openSync(filePath, 'r');
+  const buffer = Buffer.allocUnsafe(chunkSize);
+  const decoder = new StringDecoder('utf8');
+  let headers = null;
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  let quotePending = false;
+
+  function emitRow() {
+    row.push(field);
+    field = '';
+    if (row.length === 1 && row[0] === '') { row = []; return; }
+
+    if (!headers) {
+      headers = row.map((value, index) =>
+        (index === 0 ? value.replace(/^\uFEFF/, '') : value).trim()
+      );
+    } else if (row.length === headers.length) {
+      const record = {};
+      for (let index = 0; index < headers.length; index++) {
+        record[headers[index]] = row[index];
+      }
+      onRow(record);
+    }
+    row = [];
+  }
+
+  function consume(text) {
+    for (let index = 0; index < text.length; index++) {
+      const character = text[index];
+
+      if (inQuotes) {
+        if (!quotePending) {
+          if (character === '"') quotePending = true;
+          else field += character;
+          continue;
+        }
+
+        if (character === '"') {
+          field += '"';
+          quotePending = false;
+          continue;
+        }
+
+        inQuotes = false;
+        quotePending = false;
+        // The current character belongs to the unquoted state below.
+      }
+
+      if (character === '"') inQuotes = true;
+      else if (character === ',') { row.push(field); field = ''; }
+      else if (character === '\n') emitRow();
+      else if (character !== '\r') field += character;
+    }
+  }
+
+  try {
+    let bytesRead;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) consume(decoder.write(buffer.subarray(0, bytesRead)));
+    } while (bytesRead > 0);
+    consume(decoder.end());
+
+    if (quotePending) {
+      inQuotes = false;
+      quotePending = false;
+    }
+    if (field !== '' || row.length) emitRow();
+    if (inQuotes) throw new Error(`Unclosed quoted field in ${filePath}`);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+function forEachGtfsRow(filename, onRow, options) {
+  return forEachCsvRow(path.join(RAW_DIR, filename), onRow, options);
+}
+
 // --- the actual join ----------------------------------------------------
 function buildStopsRouteJoin() {
   const stops = readGtfsFile('stops.txt');
   const routes = readGtfsFile('routes.txt');
   const trips = readGtfsFile('trips.txt');
-  const stopTimes = readGtfsFile('stop_times.txt');
   const calendarDates = readGtfsFile('calendar_dates.txt');
 
   // trip_id -> route_id
@@ -83,7 +171,7 @@ function buildStopsRouteJoin() {
 
   // stop_id -> set of route_ids that serve it
   const stopRouteIds = {};
-  stopTimes.forEach(st => {
+  forEachGtfsRow('stop_times.txt', st => {
     const routeId = tripToRoute[st.trip_id];
     if (!routeId) return;
     if (!stopRouteIds[st.stop_id]) stopRouteIds[st.stop_id] = new Set();
@@ -116,5 +204,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-    readGtfsFile
+    readGtfsFile,
+    forEachCsvRow,
+    forEachGtfsRow
 }; // to allow us resuse the parser for other modules

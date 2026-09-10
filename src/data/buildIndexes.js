@@ -6,8 +6,10 @@ const {
 } = require("../spatial/nearestStop");
 
 const {
-    readGtfsFile
+    readGtfsFile,
+    forEachGtfsRow
 } = require("./loadGtfs");
+const { ServiceCalendar } = require("./ServiceCalendar");
 
 
 function buildIndexes(stops) {
@@ -189,7 +191,7 @@ function buildIndexes(stops) {
     }
 
     const shapePointsById = new Map();
-    for (const point of readGtfsFile("shapes.txt")) {
+    forEachGtfsRow("shapes.txt", point => {
         const shapeId = String(point.shape_id);
         if (!shapePointsById.has(shapeId)) shapePointsById.set(shapeId, []);
         shapePointsById.get(shapeId).push({
@@ -197,7 +199,7 @@ function buildIndexes(stops) {
             lon: Number(point.shape_pt_lon),
             sequence: Number(point.shape_pt_sequence)
         });
-    }
+    });
     for (const points of shapePointsById.values()) {
         points.sort((a, b) => a.sequence - b.sequence);
     }
@@ -216,15 +218,10 @@ function buildIndexes(stops) {
      * of stops that a particular trip visits.
      */
 
-    const stopTimes =
-        readGtfsFile("stop_times.txt");
-
-
     const stopTimesByTrip =
         new Map();
 
-
-    for (const stopTime of stopTimes) {
+    forEachGtfsRow("stop_times.txt", stopTime => {
 
         const {
             trip_id,
@@ -264,7 +261,7 @@ function buildIndexes(stops) {
                 stopSequence:
                     Number(stop_sequence)
             });
-    }
+    });
 
 
     // --------------------------------
@@ -310,7 +307,7 @@ function buildIndexes(stops) {
 
 
     const serviceByDate =
-        new Map();
+        new ServiceCalendar();
 
 
     for (
@@ -359,6 +356,8 @@ function buildIndexes(stops) {
                 .delete(service_id);
         }
     }
+
+    serviceByDate.buildFallbacks();
 
 
     // --------------------------------
