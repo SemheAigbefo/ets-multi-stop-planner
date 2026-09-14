@@ -492,6 +492,17 @@
             font-size: 11px; text-transform: uppercase; }
         .result-error { background: #fff3f3; color: #9b1c1c; border-radius: 12px;
             padding: 18px; }
+        .issue-panel { background: #fff; border: 1px solid #d9e0e6;
+            border-radius: 14px; padding: 16px; }
+        .issue-panel summary { color: #005eb8; cursor: pointer; font-weight: 700; }
+        .issue-panel textarea, .issue-panel input { box-sizing: border-box;
+            width: 100%; margin-top: 10px; padding: 11px; border: 1px solid #cbd5df;
+            border-radius: 8px; font: inherit; }
+        .issue-panel textarea { min-height: 100px; resize: vertical; }
+        .issue-submit { margin-top: 10px; padding: 10px 15px; border: 0;
+            border-radius: 8px; background: #005eb8; color: #fff; font-weight: 700;
+            cursor: pointer; }
+        .issue-status { margin: 8px 0 0; font-size: 13px; }
         #journey-map { height: 390px; border-radius: 14px; background: #dfe8ef;
             margin-top: 18px; overflow: hidden; }
         .live-status { margin-top: 10px; font-size: 13px; color: #e8f3ff; }
@@ -645,6 +656,17 @@
             </button>
         </div>
         <div id="results-content"></div>
+        <details class="issue-panel">
+            <summary>Report an issue with this journey</summary>
+            <form id="issue-form">
+                <textarea id="issue-description" maxlength="2000" required
+                    placeholder="Tell us what went wrong (at least 10 characters)."></textarea>
+                <input id="issue-email" type="email" maxlength="254"
+                    placeholder="Email (optional)">
+                <button class="issue-submit" type="submit">Send report</button>
+                <p id="issue-status" class="issue-status" aria-live="polite"></p>
+            </form>
+        </details>
     </section>
 
 
@@ -922,6 +944,7 @@ const form =
 let journeyMap = null;
 let realtimeTimer = null;
 let vehicleMarkers = new Map();
+let lastJourneyContext = null;
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
      //console.log("🚨 FORM SUBMITTED");
@@ -1021,12 +1044,51 @@ const response =
 const data =
     await response.json();
 
+lastJourneyContext = {
+    stops: stops.map(stop => stop.name),
+    departureTime: departureTime.value,
+    preferredDepartureTimes,
+    travelDate: gtfsTravelDate,
+    busesOnly: document.getElementById("buses-only").checked,
+    success: Boolean(data.success && data.multiStopTrip?.success),
+    failedLeg: data.multiStopTrip?.failedLeg || null,
+    failureReason: data.multiStopTrip?.reason || data.error || null
+};
+
 console.log(
     "Backend response:",
     data
 );
 
 renderJourneyResults(data);
+});
+
+document.getElementById("issue-form").addEventListener("submit", async event => {
+    event.preventDefault();
+    const status = document.getElementById("issue-status");
+    const button = event.currentTarget.querySelector("button");
+    button.disabled = true;
+    status.textContent = "Sending…";
+    try {
+        const response = await fetch("/api/issues", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                category: "routing",
+                description: document.getElementById("issue-description").value,
+                contactEmail: document.getElementById("issue-email").value,
+                journeyContext: lastJourneyContext
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Could not send report.");
+        event.currentTarget.reset();
+        status.textContent = "Thank you—your report was received.";
+    } catch (error) {
+        status.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
 });
 
 document.getElementById("back-to-search").addEventListener("click", () => {

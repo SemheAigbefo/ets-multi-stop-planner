@@ -32,6 +32,12 @@ const buildTransitCentreGraph =
 const {
     createWalkingRouteCache
 } = require("./src/routing/cache/createWalkingRouteCache");
+const createPersistentWalkingRouteCache =
+    require("./src/routing/cache/createPersistentWalkingRouteCache");
+const createSupabaseClient =
+    require("./src/services/createSupabaseClient");
+const { createGeocodeCache } =
+    require("./src/geocode/createGeocodeCache");
 
 const app = express(); //instance of Express application
 
@@ -100,7 +106,44 @@ const transitCentreGraph = buildTransitCentreGraph({
     tripsByRoute,
     stopTimesByTrip
 });
-const walkingRouteCache = createWalkingRouteCache();
+const supabase = createSupabaseClient({
+    url: appConfig.services.supabaseUrl,
+    serviceRoleKey: appConfig.services.supabaseServiceRoleKey
+});
+const walkingRouteCache = createPersistentWalkingRouteCache({
+    localCache: createWalkingRouteCache(),
+    supabase
+});
+const geocodeCache = createGeocodeCache({ supabase });
+
+console.log(`Supabase integration: ${supabase.enabled ? "enabled" : "disabled"}`);
+
+app.post("/api/issues", async (req, res) => {
+    if (!supabase.enabled) {
+        return res.status(503).json({ success: false, error: "Issue reporting is temporarily unavailable." });
+    }
+    const description = String(req.body?.description || "").trim();
+    const category = String(req.body?.category || "routing").trim();
+    const contactEmail = String(req.body?.contactEmail || "").trim();
+    if (description.length < 10 || description.length > 2000) {
+        return res.status(400).json({
+            success: false,
+            error: "Describe the issue using between 10 and 2,000 characters."
+        });
+    }
+    try {
+        await supabase.submitIssue({
+            category: category.slice(0, 50),
+            description,
+            contact_email: contactEmail.slice(0, 254) || null,
+            journey_context: req.body?.journeyContext || null
+        });
+        return res.status(201).json({ success: true });
+    } catch (error) {
+        console.error("Issue report storage failed:", error.message);
+        return res.status(503).json({ success: false, error: "Issue reporting is temporarily unavailable." });
+    }
+});
 
 
 /*
@@ -571,10 +614,10 @@ app.post("/api/route", async (req, res) => {
                  * coordFun.js will use Google Geocoding.
                  */
                 coordinates =
-                    await getCoordinates(
-                        stop.name,
-                        stopMap
-                    );
+                    await getCoordinates(stop.name, stopMap, {
+                        cache: geocodeCache,
+                        apiKey: appConfig.services.googleGeocodingApiKey
+                    });
 
 
                 if (!coordinates) {

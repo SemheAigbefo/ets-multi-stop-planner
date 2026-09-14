@@ -46,7 +46,7 @@ async function verifyTransitCentreJourney({
     const uncachedSegments = [];
 
     for (const segment of routedSegments) {
-        const cached = walkingRouteCache?.get(
+        const cached = await walkingRouteCache?.get(
             segment.origin,
             segment.destination
         );
@@ -106,7 +106,7 @@ async function verifyTransitCentreJourney({
         }
 
         segment.googleWalk = googleWalk;
-        walkingRouteCache?.set(
+        await walkingRouteCache?.set(
             segment.origin,
             segment.destination,
             googleWalk

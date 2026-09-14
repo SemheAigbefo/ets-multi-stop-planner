@@ -7,7 +7,11 @@
  * If it isn't, Google Geocoding is used.
  */
 
-async function getCoordinates(stopName, stopMap) {
+async function getCoordinates(stopName, stopMap, {
+    cache = null,
+    apiKey = process.env.GOOGLE_GEOCODING_API_KEY,
+    fetchImpl = globalThis.fetch
+} = {}) {
 
     /*
      * stopMap now stores:
@@ -62,19 +66,20 @@ async function getCoordinates(stopName, stopMap) {
      * If the location isn't an ETS stop,
      * try Google Geocoding.
      */
+    const cached = await cache?.get(stopName);
+    if (cached) return cached;
+
     const params =
         new URLSearchParams({
 
             address: stopName,
 
-            key:
-                process.env
-                    .GOOGLE_GEOCODING_API_KEY
+            key: apiKey
         });
 
 
     const response =
-        await fetch(
+        await fetchImpl(
             `https://maps.googleapis.com/maps/api/geocode/json?${params}`
         );
 
@@ -104,12 +109,15 @@ async function getCoordinates(stopName, stopMap) {
             .location;
 
 
-    return {
+    const coordinates = {
 
         lat: location.lat,
 
         lon: location.lng
     };
+
+    await cache?.set(stopName, coordinates);
+    return coordinates;
 }
 
 

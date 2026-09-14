@@ -41,9 +41,12 @@ const appConfig = Object.freeze({
         browserRefreshSeconds: positiveNumber(process.env.REALTIME_REFRESH_SECONDS, 15)
     }),
     services: Object.freeze({
+        googleGeocodingApiKey: process.env.GOOGLE_GEOCODING_API_KEY || null,
         googleRoutesApiKey: process.env.GOOGLE_ROUTES_API_KEY || null,
         orsApiKey: process.env.ORS_API_KEY || null,
-        orsMatrixUrl: process.env.ORS_MATRIX_URL || null
+        orsMatrixUrl: process.env.ORS_MATRIX_URL || null,
+        supabaseUrl: process.env.SUPABASE_URL || null,
+        supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || null
     })
 });
 
