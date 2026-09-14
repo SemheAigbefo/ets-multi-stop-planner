@@ -52,7 +52,13 @@ app.use(express.json()); //middleware that tells Exp serv to read and parse inco
 app.get("/health", (req, res) => {
     res.status(200).json({
         status: "ok",
-        uptimeSeconds: Math.floor(process.uptime())
+        uptimeSeconds: Math.floor(process.uptime()),
+        services: {
+            supabaseConfigured: Boolean(
+                appConfig.services.supabaseUrl &&
+                appConfig.services.supabaseServiceRoleKey
+            )
+        }
     });
 });
 
@@ -120,11 +126,15 @@ console.log(`Supabase integration: ${supabase.enabled ? "enabled" : "disabled"}`
 
 app.post("/api/issues", async (req, res) => {
     if (!supabase.enabled) {
-        return res.status(503).json({ success: false, error: "Issue reporting is temporarily unavailable." });
+        return res.status(503).json({
+            success: false,
+            code: "SUPABASE_NOT_CONFIGURED",
+            error: "Issue reporting is temporarily unavailable."
+        });
     }
     const description = String(req.body?.description || "").trim();
     const category = String(req.body?.category || "routing").trim();
-    const contactEmail = String(req.body?.contactEmail || "").trim();
+    const context = req.body?.journeyContext || {};
     if (description.length < 10 || description.length > 2000) {
         return res.status(400).json({
             success: false,
@@ -135,13 +145,30 @@ app.post("/api/issues", async (req, res) => {
         await supabase.submitIssue({
             category: category.slice(0, 50),
             description,
-            contact_email: contactEmail.slice(0, 254) || null,
-            journey_context: req.body?.journeyContext || null
+            origin: context.stops?.[0] || null,
+            destinations: Array.isArray(context.stops)
+                ? context.stops.slice(1)
+                : null,
+            departure_time: context.departureTime || null,
+            travel_date: context.travelDate || null,
+            route_result: {
+                success: context.success ?? null,
+                failedLeg: context.failedLeg || null,
+                failureReason: context.failureReason || null,
+                busesOnly: context.busesOnly ?? null,
+                preferredDepartureTimes:
+                    context.preferredDepartureTimes || null
+            },
+            browser_info: req.get("user-agent") || null
         });
         return res.status(201).json({ success: true });
     } catch (error) {
         console.error("Issue report storage failed:", error.message);
-        return res.status(503).json({ success: false, error: "Issue reporting is temporarily unavailable." });
+        return res.status(503).json({
+            success: false,
+            code: "SUPABASE_WRITE_FAILED",
+            error: "Issue reporting is temporarily unavailable."
+        });
     }
 });
 

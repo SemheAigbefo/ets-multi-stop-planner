@@ -49,8 +49,14 @@ async function run() {
     assert.equal(localValues.get("A>B").distanceMetres, 90);
     assert.equal(requests.at(-1).options.method, "POST");
 
-    await supabase.submitIssue({ category: "routing", description: "Test issue" });
+    await supabase.submitIssue({
+        category: "routing",
+        description: "Test issue",
+        origin: "Origin",
+        destinations: ["Destination"]
+    });
     assert.match(requests.at(-1).url, /\/rest\/v1\/issue_reports$/);
+    assert.match(requests.at(-1).options.body, /\"origin\":\"Origin\"/);
 
     const geocodeCache = createGeocodeCache({ supabase });
     const geocode = await geocodeCache.get("  2749  Orchards Rd SW ");

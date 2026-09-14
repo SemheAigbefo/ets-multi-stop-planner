@@ -24,11 +24,11 @@ async function planHierarchicalTransfer(options) {
     try {
         phase1 = await findDirectionalTransferConnections(options);
     } catch (error) {
-        if (!isOrsQuotaError(error)) throw error;
+        if (!isRecoverableOrsError(error)) throw error;
 
         phase1 = {
             success: false,
-            reason: "ors_quota_exceeded",
+            reason: "ors_unavailable",
             error: error.message,
             bestConnection: null,
             finalistConnections: [],
@@ -169,8 +169,8 @@ function runRaptor(options, originWalkOverridesByStopId) {
 }
 
 
-function isOrsQuotaError(error) {
-    return /quota exceeded|rate.?limit|status 429/i.test(
+function isRecoverableOrsError(error) {
+    return /ORS_|ORS Matrix|quota exceeded|rate.?limit|status (401|403|404|429)|access.*disallowed|unauthorized|forbidden/i.test(
         String(error?.message || error)
     );
 }
@@ -199,4 +199,7 @@ function phase2Failure(phase1, reason, details) {
 
 
 module.exports = planHierarchicalTransfer;
-module.exports.isOrsQuotaError = isOrsQuotaError;
+/* Retain the old export name for callers/tests while broadening the recovery
+ * to other temporary ORS configuration and availability failures. */
+module.exports.isOrsQuotaError = isRecoverableOrsError;
+module.exports.isRecoverableOrsError = isRecoverableOrsError;

@@ -661,8 +661,6 @@
             <form id="issue-form">
                 <textarea id="issue-description" maxlength="2000" required
                     placeholder="Tell us what went wrong (at least 10 characters)."></textarea>
-                <input id="issue-email" type="email" maxlength="254"
-                    placeholder="Email (optional)">
                 <button class="issue-submit" type="submit">Send report</button>
                 <p id="issue-status" class="issue-status" aria-live="polite"></p>
             </form>
@@ -1076,7 +1074,6 @@ document.getElementById("issue-form").addEventListener("submit", async event => 
             body: JSON.stringify({
                 category: "routing",
                 description: document.getElementById("issue-description").value,
-                contactEmail: document.getElementById("issue-email").value,
                 journeyContext: lastJourneyContext
             })
         });
