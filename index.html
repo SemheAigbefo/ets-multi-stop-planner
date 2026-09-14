@@ -1063,8 +1063,9 @@ renderJourneyResults(data);
 
 document.getElementById("issue-form").addEventListener("submit", async event => {
     event.preventDefault();
+    const issueForm = event.currentTarget;
     const status = document.getElementById("issue-status");
-    const button = event.currentTarget.querySelector("button");
+    const button = issueForm.querySelector("button");
     button.disabled = true;
     status.textContent = "Sending…";
     try {
@@ -1079,7 +1080,7 @@ document.getElementById("issue-form").addEventListener("submit", async event => 
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Could not send report.");
-        event.currentTarget.reset();
+        issueForm.reset();
         status.textContent = "Thank you—your report was received.";
     } catch (error) {
         status.textContent = error.message;
