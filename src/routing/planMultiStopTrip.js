@@ -265,14 +265,13 @@ async function planMultiStopTrip({
                 tripsByRoute,
                 stopTimesByTrip,
                 serviceByDate,
-                originLocation:
-                    origin.routingStop.isExactStop === false
-                        ? origin.routingStop.coordinates
-                        : null,
+                /* Always preserve the user-entered endpoint coordinates.
+                 * Even an exact stop-name/intersection match may select a
+                 * different nearby stop with earlier service, which requires
+                 * a verified access or final walking segment. */
+                originLocation: origin.routingStop.coordinates || null,
                 destinationLocation:
-                    destination.routingStop.isExactStop === false
-                        ? destination.routingStop.coordinates
-                        : null,
+                    destination.routingStop.coordinates || null,
                 destinationDistanceByStopId,
                 kdTree,
                 allowedRouteTypes,

@@ -510,9 +510,117 @@
             display: grid; place-items: center; background: #f7b500; color: #17202a;
             border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,.35);
             font-weight: 800; font-size: 11px; }
+        .route-loading { margin: 12px 0 0; color: #334155; text-align: center;
+            font-weight: 600; }
+        .submit-button:disabled { cursor: wait; opacity: .7; }
+        .endpoint-marker { width: 28px; height: 28px; border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg); display: grid; place-items: center;
+            color: white; border: 2px solid white; box-shadow: 0 2px 7px rgba(0,0,0,.4);
+            font-size: 12px; font-weight: 800; }
+        .endpoint-marker span { transform: rotate(45deg); }
+        .endpoint-origin { background: #16803c; }
+        .endpoint-destination { background: #c62828; }
+        .endpoint-waypoint { background: #7b2cbf; }
         @media (max-width: 560px) {
             .leg-result summary { grid-template-columns: 38px 1fr; }
             .leg-time { grid-column: 2; }
+        }
+
+        /* Responsive presentation inspired by the approved visual reference. */
+        :root { --blue: #0055a6; --orange: #ef6c00; --ink: #10233f;
+            --muted: #5e718d; --line: #c9d8e8; --pale: #edf5fc; }
+        body { background: #fff; color: var(--ink); }
+        .site-header { min-height: 54px; border-bottom: 1px solid var(--line);
+            background: #fff; display: flex; align-items: center; }
+        .site-header-inner { width: min(850px, calc(100% - 32px)); margin: 0 auto;
+            display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+        .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--blue);
+            font-size: 17px; font-weight: 800; text-decoration: none; }
+        .brand-mark { width: 27px; height: 27px; border: 2px solid var(--blue);
+            border-radius: 4px; display: grid; place-items: center; font-size: 15px; }
+        .site-tagline { color: var(--muted); font-size: 12px; }
+        .page { width: min(850px, calc(100% - 32px)); margin: 36px auto 54px; }
+        .header, .route-form { width: min(560px, 100%); margin-left: auto; margin-right: auto; }
+        .header { border-left: 3px solid var(--orange); padding-left: 14px; margin-bottom: 22px; }
+        .header h1 { color: var(--blue); font-size: clamp(26px, 4vw, 34px); letter-spacing: -.02em; }
+        .header p { color: var(--muted); }
+        .route-form { padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+        .stop-card { padding: 0 0 17px; margin: 0 0 17px; border: 0;
+            border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+        .stop-card:hover { border-color: var(--line); }
+        .stop-header { margin: 0; }
+        .stop-number { display: none; }
+        .remove-stop { width: 38px; height: 38px; position: absolute; right: 5px;
+            top: 25px; z-index: 2; background: #f5f8fb; }
+        .stop-label, .time-label { color: var(--ink); font-size: 13px; font-weight: 750; }
+        .stop-input, .time-input, #travel-date { min-height: 46px; border-radius: 3px;
+            border: 1px solid #9fb9d5; color: var(--ink); background: #fff; font-size: 16px; }
+        #extra-stops .stop-input { padding-right: 48px; }
+        .time-section { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; }
+        .time-section .time-label { grid-column: 2; grid-row: 1; }
+        .time-section .time-input { grid-column: 2; grid-row: 2; }
+        .time-section > label[for="travel-date"] { grid-column: 1; grid-row: 1;
+            font-size: 13px; font-weight: 750; }
+        #travel-date { grid-column: 1; grid-row: 2; width: 100%; padding: 0 12px; }
+        .time-hint { grid-column: 1 / -1; }
+        #extra-stops .time-section { display: block; }
+        .button-row { align-items: center; margin-top: 18px; }
+        .add-stop, .submit-button { border-radius: 3px; }
+        .add-stop { color: var(--blue); border: 1px solid #9fb9d5; background: #fff; }
+        .add-stop:hover { background: var(--pale); }
+        .submit-button { flex: 0 0 auto; background: var(--blue); padding: 0 22px; }
+        .results-screen { gap: 20px; }
+        .back-button { padding: 4px 0; height: auto; border-radius: 0; box-shadow: none;
+            color: var(--blue); background: transparent; }
+        .journey-summary { padding: 0 0 20px; color: var(--ink); background: transparent;
+            border-radius: 0; border-bottom: 1px solid var(--line); }
+        .journey-kicker { margin: 0 0 6px !important; color: var(--orange) !important;
+            font-size: 12px; font-weight: 700; }
+        .journey-heading { display: flex; justify-content: space-between; align-items: end;
+            gap: 20px; }
+        .journey-summary h2 { color: var(--blue); font-size: clamp(23px, 4vw, 31px); }
+        .journey-summary p { color: var(--muted); }
+        .journey-clock { color: var(--ink); font-size: 22px; font-weight: 800; white-space: nowrap; }
+        .journey-clock small { color: var(--muted); font-size: 12px; font-weight: 500; }
+        .journey-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 1.1fr);
+            gap: 22px; align-items: start; }
+        .journey-directions h3 { margin: 0 0 12px; font-size: 16px; }
+        .leg-result { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+        .leg-result summary { padding: 13px 2px; grid-template-columns: 32px 1fr auto; gap: 10px; }
+        .leg-number { width: 29px; height: 29px; font-size: 12px; }
+        .leg-steps { padding: 0 8px 8px 44px; border: 0; }
+        .direction-step { padding: 11px 0; }
+        .mode-badge { display: none; }
+        .step-title { color: var(--ink); }
+        .map-panel { min-width: 0; }
+        #journey-map { height: 390px; margin: 0; border-radius: 3px; border: 1px solid #9fb9d5; }
+        .live-status { color: var(--muted); }
+        .issue-panel { width: fit-content; border-radius: 3px; padding: 12px 15px; }
+        @media (max-width: 720px) {
+            .page { width: min(560px, calc(100% - 24px)); margin-top: 24px; }
+            .site-header-inner { width: calc(100% - 24px); }
+            .site-tagline { display: none; }
+            .journey-heading { display: block; }
+            .journey-clock { margin-top: 13px; font-size: 20px; }
+            .journey-layout { grid-template-columns: 1fr; }
+            .map-panel { grid-row: 1; }
+            #journey-map { height: min(55vh, 360px); }
+            .journey-directions { grid-row: 2; }
+            .issue-panel { width: 100%; }
+        }
+        @media (max-width: 480px) {
+            .page { width: calc(100% - 20px); margin-top: 18px; }
+            .header h1 { font-size: 27px; }
+            .time-section { grid-template-columns: 1fr; }
+            .time-section .time-label, .time-section .time-input,
+            .time-section > label[for="travel-date"], #travel-date,
+            .time-hint { grid-column: 1; grid-row: auto; }
+            .button-row { flex-direction: column; }
+            .add-stop, .submit-button { width: 100%; min-height: 48px; }
+            .leg-result summary { grid-template-columns: 32px 1fr; }
+            .leg-time { grid-column: 2; }
+            .leg-steps { padding-left: 8px; }
+            button, input, textarea { font-size: 16px; }
         }
     </style>
 
@@ -520,6 +628,16 @@
 
 
 <body>
+
+<header class="site-header">
+    <div class="site-header-inner">
+        <a class="brand" href="/" aria-label="Easitransit home">
+            <span class="brand-mark">e</span>
+            <span>easitransit</span>
+        </a>
+        <span class="site-tagline">Edmonton journey planner</span>
+    </div>
+</header>
 
 
 <div class="page">
@@ -531,10 +649,10 @@
 
     <div class="header">
 
-        <h1>ETS Route Planner</h1>
+        <h1>Plan your journey</h1>
 
         <p>
-            Choose your stops and find the best route.
+            Find a practical route by bus or LRT in Edmonton.
         </p>
 
     </div>
@@ -644,6 +762,9 @@
 
 
         </div>
+        <p id="route-loading" class="route-loading" hidden aria-live="polite">
+            Finding the best journey… This may take a moment.
+        </p>
 
 
     </form>
@@ -652,7 +773,7 @@
         aria-live="polite">
         <div class="results-top">
             <button type="button" id="back-to-search" class="back-button">
-                ← Edit journey
+                &lt; Edit journey
             </button>
         </div>
         <div id="results-content"></div>
@@ -779,37 +900,7 @@ function renumberStops() {
 }
 
 
-/* ==================================================
-   LOAD KNOWN STOPS
-================================================== */
-let knownStops = [];
 const stopDetailsById = new Map();
-fetch("stopsRouteJoin.json")
-    .then(response => response.json())
-    .then(data => {
-        knownStops = [
-            ...new Set(
-                data.map(stop => stop.name)
-            )
-        ];
-        data.forEach(stop =>
-            stopDetailsById.set(String(stop.stopId), stop)
-        );
-        console.log(
-            "Loaded stops:",
-            knownStops
-        );
-    })
-    .catch(err => {
-        console.error(
-            "Failed to load stops:",
-            err
-        );
-
-    });
-
-
-
 /* ==================================================
    STOP SEARCH + VALIDATION
 ================================================== */
@@ -826,33 +917,31 @@ function attachStopBehavior(input) {
        LIVE SEARCH
     ============================================== */
 
+    let searchTimer = null;
     input.addEventListener(
-        "input",() => {const query = input.value.trim().toLowerCase();
+        "input",() => {const query = input.value.trim();
             /* Nothing typed */
             if (query === "") {
                 suggestions.innerHTML = "";
                 input.setCustomValidity("");
                 return;
             }
-            /* Find matching stops */
-            const matches =
-                knownStops.filter(stop =>
-
-                    stop
-                        .toLowerCase()
-                        .includes(query)
-
-                );
-            /* Show maximum 3 */
-            suggestions.innerHTML =
-                matches
-                    .slice(0, 3)
-                    .map(stop =>
-                        `<div class="suggestion">
-                            ${stop}
-                        </div>`
-                    )
-                    .join("");
+            clearTimeout(searchTimer);
+            if (query.length < 2) return;
+            searchTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch(
+                        `/api/stops/search?q=${encodeURIComponent(query)}`
+                    );
+                    const data = await response.json();
+                    if (input.value.trim() !== query) return;
+                    suggestions.innerHTML = (data.stops || [])
+                        .map(stop => `<div class="suggestion">${escapeHtml(stop)}</div>`)
+                        .join("");
+                } catch {
+                    suggestions.innerHTML = "";
+                }
+            }, 180);
 
         }
     );
@@ -901,30 +990,6 @@ suggestions = suggestion box belonging to the input the user clicked */
 
         }
     );
-    /* ==============================================
-       VALIDATE WHEN USER LEAVES INPUT
-    ============================================== */
-    input.addEventListener(
-        "blur",
-        () => {
-            /*
-             * Small delay allows the suggestion's
-             * mousedown event to run first.
-             */
-            setTimeout(() => {
-                const value =
-                    input.value.trim();
-                /* Empty input */
-                if (value === "") {
-                    return;
-                }
-                /* Check against known stops */
-                const isKnown =knownStops.some(stop =>stop.toLowerCase() === value.toLowerCase()
-                    );
-            }, 150);
-        }
-    );
-
 }
 /* ==================================================
    INITIAL STOP INPUTS
@@ -945,6 +1010,12 @@ let vehicleMarkers = new Map();
 let lastJourneyContext = null;
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitButton = form.querySelector(".submit-button");
+    const loading = document.getElementById("route-loading");
+    submitButton.disabled = true;
+    submitButton.value = "Searching…";
+    loading.hidden = false;
+    try {
      //console.log("🚨 FORM SUBMITTED");
     const departureTime = document.getElementById("time1");
     /*
@@ -1058,8 +1129,43 @@ console.log(
     data
 );
 
+if (data.success && data.multiStopTrip?.success) {
+    await loadJourneyStopDetails(data.multiStopTrip);
+}
 renderJourneyResults(data);
+    } catch (error) {
+        renderJourneyResults({
+            success: false,
+            error: "We could not contact the route service. Check your connection and try again."
+        });
+    } finally {
+        submitButton.disabled = false;
+        submitButton.value = "Search Routes";
+        loading.hidden = true;
+    }
 });
+
+async function loadJourneyStopDetails(journey) {
+    const ids = new Set();
+    for (const leg of journey.legs || []) {
+        for (const action of leg.itinerary?.itinerary || []) {
+            if (action.fromStopId != null) ids.add(String(action.fromStopId));
+            if (action.toStopId != null) ids.add(String(action.toStopId));
+        }
+    }
+    if (!ids.size) return;
+    try {
+        const response = await fetch(
+            `/api/stops/details?ids=${encodeURIComponent([...ids].join(","))}`
+        );
+        const data = await response.json();
+        for (const stop of data.stops || []) {
+            stopDetailsById.set(String(stop.stopId), stop);
+        }
+    } catch {
+        /* Stop IDs remain usable labels when optional display details fail. */
+    }
+}
 
 document.getElementById("issue-form").addEventListener("submit", async event => {
     event.preventDefault();
@@ -1092,6 +1198,7 @@ document.getElementById("issue-form").addEventListener("submit", async event => 
 document.getElementById("back-to-search").addEventListener("click", () => {
     document.getElementById("results-screen").hidden = true;
     form.hidden = false;
+    document.querySelector(".header").hidden = false;
     clearInterval(realtimeTimer);
     document.querySelector(".header p").textContent =
         "Choose your stops and find the best route.";
@@ -1104,6 +1211,7 @@ function renderJourneyResults(data) {
     const journey = data.multiStopTrip;
 
     form.hidden = true;
+    document.querySelector(".header").hidden = true;
     screen.hidden = false;
     document.querySelector(".header p").textContent =
         "Your complete ETS journey.";
@@ -1112,24 +1220,46 @@ function renderJourneyResults(data) {
         const failed = journey?.failedLeg
             ? ` Leg ${journey.failedLeg} could not be planned.`
             : "";
-        content.innerHTML = `<div class="result-error"><strong>No complete route found.</strong>${failed}</div>`;
+        const message = data.error ||
+            journey?.failureReason ||
+            "No complete route was found for those locations and time.";
+        content.innerHTML = `<div class="result-error"><strong>We couldn’t plan this journey.</strong><br>${escapeHtml(message)}${failed}</div>`;
         return;
     }
 
     const first = journey.legs[0];
     const last = journey.legs[journey.legs.length - 1];
+    const durationMinutes = journeyDurationMinutes(
+        first.actualDepartureTime,
+        journey.finalArrivalTime
+    );
     content.innerHTML = `
         <div class="journey-summary">
-            <h2>${escapeHtml(first.origin)} → ${escapeHtml(last.destination)}</h2>
-            <p>${journey.legs.length} ${journey.legs.length === 1 ? "leg" : "legs"}</p>
-            <p>Leave ${formatTime(first.actualDepartureTime)} · Arrive ${formatTime(journey.finalArrivalTime)}</p>
+            <p class="journey-kicker">Recommended journey</p>
+            <div class="journey-heading">
+                <div>
+                    <h2>${escapeHtml(first.origin)} to ${escapeHtml(last.destination)}</h2>
+                    <p>${journey.legs.length} ${journey.legs.length === 1 ? "journey leg" : "journey legs"}</p>
+                </div>
+                <div class="journey-clock">
+                    ${formatTime(first.actualDepartureTime)} to ${formatTime(journey.finalArrivalTime)}
+                    ${durationMinutes ? `<small>${durationMinutes} min</small>` : ""}
+                </div>
+            </div>
             ${data.scheduleBasis?.exact === false
                 ? `<p>Schedule estimate: ${escapeHtml(data.scheduleBasis.dayType)} service</p>`
                 : ""}
-            <div id="journey-map" aria-label="Journey map"></div>
-            <p id="live-status" class="live-status">Loading map…</p>
         </div>
-        ${journey.legs.map((leg, index) => renderLeg(leg, index)).join("")}
+        <div class="journey-layout">
+            <div class="journey-directions">
+                <h3>Journey details</h3>
+                ${journey.legs.map((leg, index) => renderLeg(leg, index)).join("")}
+            </div>
+            <div class="map-panel">
+                <div id="journey-map" aria-label="Journey map"></div>
+                <p id="live-status" class="live-status">Loading map…</p>
+            </div>
+        </div>
     `;
     renderJourneyMap(journey);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1209,6 +1339,15 @@ function formatTime(value) {
     return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
+function journeyDurationMinutes(departure, arrival) {
+    if (!departure || !arrival) return 0;
+    const toMinutes = value => {
+        const [hours, minutes] = String(value).split(":").map(Number);
+        return hours * 60 + minutes;
+    };
+    return Math.max(0, toMinutes(arrival) - toMinutes(departure));
+}
+
 function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>'"]/g, character => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;",
@@ -1272,6 +1411,30 @@ async function renderJourneyMap(journey) {
         }
     });
 
+    const firstActions = journey.legs[0]?.itinerary?.itinerary || [];
+    const firstPoint = firstActions.length
+        ? mapPoint(firstActions[0], "from")
+        : null;
+    if (firstPoint) {
+        addEndpointMarker(firstPoint, "Origin", "origin", "O");
+        allBounds.push(firstPoint);
+    }
+
+    journey.legs.forEach((leg, index) => {
+        const actions = leg.itinerary?.itinerary || [];
+        if (!actions.length) return;
+        const point = mapPoint(actions.at(-1), "to");
+        if (!point) return;
+        const isFinal = index === journey.legs.length - 1;
+        addEndpointMarker(
+            point,
+            isFinal ? "Final destination" : `Destination ${index + 1}`,
+            isFinal ? "destination" : "waypoint",
+            isFinal ? "D" : String(index + 1)
+        );
+        allBounds.push(point);
+    });
+
     await Promise.all(shapeRequests);
 
     if (allBounds.length) journeyMap.fitBounds(allBounds, { padding: [28, 28] });
@@ -1299,6 +1462,17 @@ async function renderJourneyMap(journey) {
     }
     updateLiveVehicles(tripIds);
     realtimeTimer = setInterval(() => updateLiveVehicles(tripIds), 15000);
+}
+
+function addEndpointMarker(point, label, type, symbol) {
+    const icon = L.divIcon({
+        className: "",
+        html: `<div class="endpoint-marker endpoint-${type}"><span>${symbol}</span></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -28]
+    });
+    L.marker(point, { icon }).addTo(journeyMap).bindPopup(escapeHtml(label));
 }
 
 async function loadTransitShape(action) {

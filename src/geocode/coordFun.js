@@ -65,15 +65,19 @@ async function getCoordinates(stopName, stopMap, {
     /*
      * If the location isn't an ETS stop,
      * try Google Geocoding.
-     */
+    */
     const cached = await cache?.get(stopName);
-    if (cached) return cached;
+    if (cached && isInEdmontonArea(cached)) return cached;
 
+    const normalizedAddress = /\bedmonton\b/i.test(stopName)
+        ? stopName
+        : `${stopName}, Edmonton, Alberta, Canada`;
     const params =
         new URLSearchParams({
-
-            address: stopName,
-
+            address: normalizedAddress,
+            region: "ca",
+            components: "country:CA",
+            bounds: "53.3000,-114.0000|53.7500,-113.1500",
             key: apiKey
         });
 
@@ -91,12 +95,14 @@ async function getCoordinates(stopName, stopMap, {
     /*
      * Google couldn't find the location.
      */
-    if (
-        data.status !== "OK" ||
-        data.results.length === 0
-    ) {
-
+    if (data.status === "ZERO_RESULTS" || data.results?.length === 0) {
         return null;
+    }
+
+    if (data.status !== "OK") {
+        const error = new Error(`Google Geocoding failed: ${data.status}`);
+        error.code = "GEOCODING_SERVICE_ERROR";
+        throw error;
     }
 
 
@@ -116,8 +122,21 @@ async function getCoordinates(stopName, stopMap, {
         lon: location.lng
     };
 
+    /* Do not silently route an Edmonton query from a result in another city
+     * or country. This broad box includes Edmonton and nearby communities. */
+    if (!isInEdmontonArea(coordinates)) {
+        return null;
+    }
+
     await cache?.set(stopName, coordinates);
     return coordinates;
+}
+
+function isInEdmontonArea(coordinates) {
+    return Number(coordinates?.lat) >= 53.3 &&
+        Number(coordinates?.lat) <= 53.75 &&
+        Number(coordinates?.lon) >= -114.0 &&
+        Number(coordinates?.lon) <= -113.15;
 }
 
 

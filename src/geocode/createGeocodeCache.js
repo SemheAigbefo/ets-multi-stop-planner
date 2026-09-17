@@ -31,7 +31,10 @@ function createGeocodeCache({
 }
 
 function cacheKey(address) {
-    return `address:${String(address).trim().toLowerCase().replace(/\s+/g, " ")}`;
+    /* v2 invalidates coordinates stored before Edmonton-specific address
+     * normalization was introduced. Those values may still be inside the
+     * Edmonton bounding box while representing the wrong intersection. */
+    return `geocode:v2:address:${String(address).trim().toLowerCase().replace(/\s+/g, " ")}`;
 }
 
 module.exports = { createGeocodeCache, cacheKey };

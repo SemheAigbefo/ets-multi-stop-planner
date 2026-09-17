@@ -1,14 +1,29 @@
 function createSupabaseClient({ url, serviceRoleKey, fetchImpl = globalThis.fetch } = {}) {
-    const baseUrl = String(url || "").replace(/\/$/, "");
-    const enabled = Boolean(baseUrl && serviceRoleKey);
+    const baseUrl = String(url || "").trim().replace(/\/+$/, "");
+    const key = String(serviceRoleKey || "").trim();
+    const configured = Boolean(baseUrl && key);
+    let configurationError = null;
+
+    if (configured) {
+        try {
+            const parsed = new URL(baseUrl);
+            if (parsed.protocol !== "https:") {
+                throw new Error("SUPABASE_URL must use https.");
+            }
+        } catch {
+            configurationError = "SUPABASE_URL is not a valid HTTPS URL.";
+        }
+    }
+
+    const enabled = configured && !configurationError;
 
     async function request(path, options = {}) {
         if (!enabled) return null;
         const response = await fetchImpl(`${baseUrl}/rest/v1/${path}`, {
             ...options,
             headers: {
-                apikey: serviceRoleKey,
-                Authorization: `Bearer ${serviceRoleKey}`,
+                apikey: key,
+                Authorization: `Bearer ${key}`,
                 "Content-Type": "application/json",
                 ...options.headers
             }
@@ -57,7 +72,14 @@ function createSupabaseClient({ url, serviceRoleKey, fetchImpl = globalThis.fetc
         });
     }
 
-    return { enabled, getCache, setCache, submitIssue };
+    return {
+        enabled,
+        configured,
+        configurationError,
+        getCache,
+        setCache,
+        submitIssue
+    };
 }
 
 module.exports = createSupabaseClient;

@@ -101,6 +101,37 @@ const {
 registerRealtimeRoutes({ app, config: appConfig.realtime });
 registerShapeRoutes({ app, tripById, shapePointsById, stopById });
 
+const searchableStopNames = [...stopMap.keys()].sort();
+
+app.get("/api/stops/search", (req, res) => {
+    const query = String(req.query.q || "").trim().toLowerCase();
+    if (query.length < 2) return res.json({ success: true, stops: [] });
+    const startsWith = [];
+    const contains = [];
+    for (const name of searchableStopNames) {
+        const lowerName = name.toLowerCase();
+        if (lowerName.startsWith(query)) startsWith.push(name);
+        else if (lowerName.includes(query)) contains.push(name);
+        if (startsWith.length + contains.length >= 12) break;
+    }
+    return res.json({
+        success: true,
+        stops: [...startsWith, ...contains].slice(0, 5)
+    });
+});
+
+app.get("/api/stops/details", (req, res) => {
+    const ids = String(req.query.ids || "")
+        .split(",").map(id => id.trim()).filter(Boolean).slice(0, 100);
+    const stops = ids.map(id => stopById.get(id)).filter(Boolean).map(stop => ({
+        stopId: stop.stopId,
+        name: stop.name,
+        lat: stop.lat,
+        lon: stop.lon
+    }));
+    return res.json({ success: true, stops });
+});
+
 /* This smaller graph is static for the loaded GTFS feed, so build it once. */
 const {
     centresById,
@@ -122,7 +153,10 @@ const walkingRouteCache = createPersistentWalkingRouteCache({
 });
 const geocodeCache = createGeocodeCache({ supabase });
 
-console.log(`Supabase integration: ${supabase.enabled ? "enabled" : "disabled"}`);
+console.log(
+    `Supabase integration: ${supabase.enabled ? "enabled" : "disabled"}`,
+    supabase.configurationError || ""
+);
 
 app.post("/api/issues", async (req, res) => {
     if (!supabase.enabled) {
@@ -600,10 +634,6 @@ app.post("/api/route", async (req, res) => {
                  * because different routes may use
                  * different bays.
                  */
-                physicalStops =
-                    exactStops;
-
-
                 /*
                  * For location/display purposes, use
                  * the coordinates of the first stop.
@@ -619,6 +649,31 @@ app.post("/api/route", async (req, res) => {
                     lon:
                         exactStops[0].lon
                 };
+
+                /* Exact stop names can also be intersections entered as an
+                 * address. Keep the exact stop IDs, but include other nearby
+                 * physical stops so the journey is not rejected merely
+                 * because the identically named stop has no service yet. */
+                const nearbySelection = selectEndpointStops({
+                    kdTree,
+                    lat: coordinates.lat,
+                    lon: coordinates.lon,
+                    radiusMetres: appConfig.endpoints.searchRadiusMetres,
+                    maximumStops: appConfig.endpoints.maximumStops
+                });
+                const physicalStopsById = new Map();
+
+                for (const physicalStop of [
+                    ...exactStops,
+                    ...nearbySelection.stops
+                ]) {
+                    physicalStopsById.set(
+                        String(physicalStop.stopId),
+                        physicalStop
+                    );
+                }
+
+                physicalStops = [...physicalStopsById.values()];
 
 
                 /*
@@ -648,10 +703,12 @@ app.post("/api/route", async (req, res) => {
 
 
                 if (!coordinates) {
-
-                    throw new Error(
-                        `Could not find coordinates for ${stop.name}`
+                    const error = new Error(
+                        `We could not find “${stop.name}” in the Edmonton area. Add the street address or neighbourhood.`
                     );
+                    error.statusCode = 422;
+                    error.code = "LOCATION_NOT_FOUND";
+                    throw error;
                 }
 
 
@@ -670,10 +727,12 @@ app.post("/api/route", async (req, res) => {
 
 
                 if (endpointSelection.stops.length === 0) {
-
-                    throw new Error(
-                        `Could not find nearest ETS stop for ${stop.name}`
+                    const error = new Error(
+                        `No ETS stops were found near “${stop.name}”. Try a more precise Edmonton address.`
                     );
+                    error.statusCode = 422;
+                    error.code = "NO_NEARBY_ETS_STOPS";
+                    throw error;
                 }
 
 
@@ -905,12 +964,15 @@ app.post("/api/route", async (req, res) => {
         );
 
 
-        res.status(500).json({
+        const statusCode = error.statusCode ||
+            (error.code === "GEOCODING_SERVICE_ERROR" ? 503 : 500);
+        res.status(statusCode).json({
 
             success: false,
-
-            error:
-                "Failed to process route"
+            code: error.code || "ROUTE_PROCESSING_FAILED",
+            error: statusCode < 500
+                ? error.message
+                : "The route service is temporarily unavailable. Please try again."
         });
     }
 });

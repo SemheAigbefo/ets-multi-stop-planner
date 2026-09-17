@@ -22,8 +22,8 @@ async function run() {
         };
     };
     const supabase = createSupabaseClient({
-        url: "https://example.supabase.co/",
-        serviceRoleKey: "server-secret",
+        url: "  https://example.supabase.co/\n",
+        serviceRoleKey: " server-secret\n",
         fetchImpl
     });
     assert.equal(supabase.enabled, true);
@@ -61,13 +61,22 @@ async function run() {
     const geocodeCache = createGeocodeCache({ supabase });
     const geocode = await geocodeCache.get("  2749  Orchards Rd SW ");
     assert.equal(geocode.distanceMetres, 80);
-    assert.equal(cacheKey("  2749  Orchards Rd SW "), "address:2749 orchards rd sw");
+    assert.equal(
+        cacheKey("  2749  Orchards Rd SW "),
+        "geocode:v2:address:2749 orchards rd sw"
+    );
     await geocodeCache.set("2749 Orchards Rd SW", { lat: 53.4, lon: -113.45 });
     assert.match(requests.at(-1).options.body, /\"cache_type\":\"geocode\"/);
 
     const disabled = createSupabaseClient();
     assert.equal(disabled.enabled, false);
     assert.equal(await disabled.getCache("x", "walking_route"), null);
+    const malformed = createSupabaseClient({
+        url: "not-a-url",
+        serviceRoleKey: "server-secret"
+    });
+    assert.equal(malformed.enabled, false);
+    assert.match(malformed.configurationError, /valid HTTPS URL/);
     console.log("Supabase integration tests passed.");
 }
 
